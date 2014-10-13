@@ -45,7 +45,7 @@ c       numlls,dvavoid,nhills(i),blls(i),zlls(i)
       ddec=decmax-decmin
      
       zmin=2.0
-      zmax=4.2
+      zmax=6.2
       dz=zmax-zmin
       
       alphamin=-1
