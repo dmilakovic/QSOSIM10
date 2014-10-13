@@ -6,18 +6,19 @@ c  OUTPUT:  artificial SDSS catalogue
       IMPLICIT NONE
       CHARACTER :: infile*20, outfile*20, descriptor*6
       INTEGER,PARAMETER :: nrows=25
-      INTEGER,PARAMETER :: npoints=1000
+      INTEGER,PARAMETER :: npoints=10000
       INTEGER :: i,j,inoise, numlin, npts, nl
       INTEGER,DIMENSION(nrows) :: numlls
       REAL*8 :: wstart,wend,dw
       REAL*8 :: nc,nuplim,dvavoid
-      REAL*8 :: corr, zstart
+      REAL*8 :: corr, zstart,zend
       REAL*8,DIMENSION(3) :: bigA,gamma,n
       INTEGER,DIMENSION(3) :: ni
       REAL*8,DIMENSION(nrows) :: ra,dec,zqso,alpha,vmag,s2n,sigblur
       REAL*8 :: lambda(262144),flux(262144), da4(262144)
       REAL*8 :: flerr(262144), nnflux(262144)
-      real*8, dimension(npoints) :: xs,ys,CDDF,H
+      REAL*8, DIMENSION(npoints) :: xs,ys,CDDF,H
+      REAL*8,DIMENSION(:),allocatable :: nhi4,z4
       EXTERNAL :: qsosim9, spline, readfits, writefits, power_laws
 !====================================================================== 
 ! ---------------------------------------------------------------------
@@ -51,17 +52,21 @@ c  OUTPUT:  artificial SDSS catalogue
 ! ---------------------------------------------------------------------
 ! GENERATE ARTIFICIAL SPECTRA
 ! ---------------------------------------------------------------------
-      do i=1,1
+      do i=15,15
+         zend=zqso(i)
          write (descriptor,'(I6.6)') i
          write (6,*)'=================================================='
          write (6,*)'               Spectrum no. ',descriptor
          write (6,*)'=================================================='
 
-         call power_laws(npoints,zstart,zqso(i),xs,ys,
-     +                      bigA,gamma,nl,n,ni,corr)
-         call qsosim9(zqso(i),alpha(i),vmag(i),wstart,wend,dw,
-     +          nc,nuplim,sigblur(i),s2n(i),inoise,dvavoid,npts,
-     +          lambda,flux,flerr,nnflux,npoints,xs,ys,CDDF,nl,ni)
+         call power_laws(npoints,zstart,zqso(i),xs,ys,CDDF,
+     +                      bigA,gamma,corr,nl,ni)
+         allocate(nhi4(nl))
+         allocate(z4(nl))
+         call assign(npoints,zstart,zqso(i),xs,CDDF,gamma,nl,ni,nhi4,z4)
+         call qsosim9(zqso(i),alpha(i),vmag(i),wstart,wend,dw,nc,nuplim,
+     +          sigblur(i),s2n(i),inoise,dvavoid,npts,lambda,flux,flerr,
+     +          nnflux,npoints,xs,ys,CDDF,nl,ni,nhi4,z4)
          outfile='spec-'//descriptor//'.fits'
          call writefits(outfile,ra(i),dec(i),zqso(i),alpha(i),npts,
      &                     lambda,flux,flerr,nnflux)
@@ -69,14 +74,18 @@ c  OUTPUT:  artificial SDSS catalogue
       end do
 ! ---------------------------------------------------------------------
 ! PLOT QSO SPECTRUM OF THE LAST SOURCE
-! ---------------------------------------------------------------------      
-      call PGBEGIN (0,'/xserve',1,1)
+! --------------------------------------------------------------------- 
+      call PGBEGIN (0,'/xserve',1,2)
       call PGSLW(1)
-      call PGENV (3550.,10500.,0.0,1e-14,0,1)
+      call PGENV (3550.,10500.,0.0,5e-15,0,1)
       call PGLABEL ('lambda','flux','QSO spectrum')
       call pgline(npts,real(lambda),real(flux))
       call pgsci(2)
       call pgline(npts,real(lambda),real(nnflux))
+      call pgsci(1)
+      call PGENV(11.5,22.5,2.00,2.1,0,1)
+      call PGLABEL('log NHI','z','Random choice of NHI & redshift')
+      call PGPT(nl,real(nhi4),real(z4),3)
       call PGEND
 !======================================================================
       END PROGRAM qsosim10

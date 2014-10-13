@@ -5,13 +5,14 @@ c Compile using Makefile
 c ----------------------------------------------------------------------------
 	SUBROUTINE QSOSIM9(zqso,alpha,vmag,wstart,wend,dw,nc,nuplim,
      :          sigblur,s2n,inoise,dvavoid,npts,lambda,flux,
-     :          flerr,nnflux,npoints,xs,ys,CDDF,numlin)
+     :          flerr,nnflux,npoints,xs,ys,CDDF,numlin,ni,nhi4,z4)
 	  real*4 wda(262144),danoabs(262144),tau(262144)
 	  real*4 da4(262144),da4conv(262144)
 	  real*4 da_err4(262144),da4smno(262144)
 	  real*8 da(262144),da_err(262144),da_err4mod(262144)
 	  real*4 wems(30),relstr(30)
-	  real*4 sum,nhi,b,z,g,z1p1,z2p1,x,gp1,w,ff
+	  real*8 nhi,b,z,z1p1,z2p1
+	  real*4 w,ff,sum,zstart,zend
 	  real*4 a12p5,rn,a13p75,a13p1,mbp1,zqsop1,pi
 	  real*4 c,d,p,q,r,s,vlight,zleft,zright
 	  real*8 lognhi, delta,mdelta
@@ -20,18 +21,20 @@ c ----------------------------------------------------------------------------
 	  real*8, intent(in) :: s2n,dvavoid,nc,nuplim,sigblur
 	  real*8, intent(out) ::  lambda(262144),flux(262144)
 	  real*8, intent(out) :: flerr(262144), nnflux(262144)
-          real*8 alm, fik,asm
+          real*8 alm, fik,asm,ran3
 	  real*4 n1,n2,n3
-	  real*4 factor
+	  real*4, dimension(3) :: bins
 	  real*8, dimension(3) :: gamma
 	  integer,dimension(3) :: ni
-	  real*8, dimension(npoints) :: xs,ys,CDDF,dummy,nhi4,z4, dummyy
+	  real*8, dimension(npoints) :: xs,ys,CDDF,dummy, dummyy
+	  real*8,dimension(numlin) :: nhi4,z4
 	  integer npts,npoints,idum,numlls,iflag,inoise,index,numlin
 
 	  data pi/3.14159265/
 	  data vlight/299792.458/
 	  data gamma/1.51,2.16,1.33/
-      external ran3, gasdev3
+	  data bins/12.0,14.0,17.0/
+      external gasdev3
       common/vpc_ewllns/lbz(2500),lzz(2500),alm(2500),
      :                fik(2500),asm(2500),numel
 c ----------------------------------------------------------------------------
@@ -99,6 +102,8 @@ c g is from dn=A(1+z)^g dz, beta is from dn propto N^{-beta} dN.
 c a13p75 is the value of A for lines above logN=13.75.
 c gp1= gamma+1, mbp1=1-beta, nc is N cutoff, n is total no. of lines
       a13p75=10.0
+      zstart=wstart/1215.67-1.
+      zend=zqso
       z1p1=(wstart/1215.67)
       z2p1=zqsop1
 
@@ -117,42 +122,8 @@ c Call Voigt profile generator n times, once for each abs system
 	     
 c Random selection of NHI (must have appropriate number of points in a defined
 c range of NHI) and redshifts
- 1	c=ran3(idum)
-	index=0
-	nhi4(i)=0
-	z4(i)=0
-	mdelta=1.0
-        if(c.lt.1.0) then
-! -------------------------------------------------------------------
-	  do j=1,npoints
-	     delta=abs(c-CDDF(j))
-	     if (delta.lt.mdelta) then
-		mdelta=delta
-		index=j
-	     end if
-	  end do
-        else
-          goto 1
-        end if
-	lognhi=xs(index)
-	nhi=10**xs(index)
-	nhi4(i)=xs(index)
-! --------------------------------------------------------------------
-        if ((lognhi.ge.12.0).and.(lognhi.lt.14.0)) then
-           g=gamma(1)
-        else if ((lognhi.ge.14.0).and.(lognhi.lt.17.0)) then
-           g=gamma(2)
-        else if ((lognhi.ge.17.0).and.(lognhi.lt.22.0)) then
-	   g=gamma(3)
-        end if
-	d=ran3(idum)	
-	gp1=g+1.
-        p=z2p1**gp1
-        q=z1p1**gp1
-        x=alog10(d*(p-q)+q)
-        x=x/gp1
-        z=10**x -1.0
-	z4(i)=z
+	     nhi=10**nhi4(i)
+	     z=z4(i)
 ! --------------------------------------------------------------------
 
 c b-params.  Guess at sigma and mean of b distribution of 3 and 23 km/s.
@@ -168,9 +139,7 @@ c      zleft=zlls(j) - dvavoid*(1.0+zlls(j))/vlight
 c      if(z.ge.zleft.and.z.le.zright)iflag=1
 c      end do
       if(nhi.ge.nuplim)iflag=1
-      
-      if(iflag.eq.0)call spvoigt(da,wda,npts,dble(nhi),
-     :                           dble(z),dble(b),'H ','I   ')
+      if(iflag.eq.0)call spvoigt(da,wda,npts,nhi,z,b,'H ','I   ')
 
       end do
 c End of loop for forest.  Now put the LLS's in
@@ -245,26 +214,26 @@ c         write(*,100)lambda(i),flux(i),flerr(i),nnflux(i)
 
       call PGENV (xmin,xmax,ymin,ymax,0,1)
       call PGLABEL ('Wavelength','f(lambda)','Linear wavelengths')
-c      call pgline(npts,wda,da4smno)
-      call pgslw(0.6)
-      call pgsci(1)!5)
+      call pgline(npts,wda,da4smno)
+      call pgslw(1)
+      call pgsci(5)
       call pgline(npts,wda,da4conv)
       call pgsls(2)
       call pgsci(2)
-c      call pgline(npts,wda,danoabs)
+      call pgline(npts,wda,danoabs)
       call pgsls(1)
       call pgsci(3)
-c      call pgline(npts,wda,da_err4)
-
+      call pgline(npts,wda,da_err4)
 	call pgsci(1)
-	call PGENV(11.5,22.5,z1p1-1.1,z2p1-0.9,0,1)
+	call PGENV(12.0,22.0,zstart-0.1,zend+0.1,0,1)
 	call PGLABEL('log NHI','z','Random choice of redshift')
 	call PGPT(numlin,real(nhi4),real(z4),3)
-
 	call pgsls(1)
-	call PGENV(1.0,real(numlin),11.5,22.5,0,1)
-	call PGLABEL('Line number','log NHI','Random choice of NHI')
-	call PGPT(numlin,real(dummy),real(nhi4),3)
+	call PGENV(12.0,22.0,0,real(numlin),0,1)
+	call PGLABEL('log NHI','No of lines','Choice of NHI')
+c	call PGBIN(3,bins,real(ni),.FALSE.)
+	call PGHIST(numlin,real(nhi4),12.0,22.0,200,1)
+c	call PGPT(numlin,real(dummy),real(nhi4),3)
       call pgend
 
       return
@@ -277,7 +246,7 @@ c Numercial Recipes subroutine
       INTEGER idum
       INTEGER MBIG,MSEED,MZ
 C     REAL MBIG,MSEED,MZ
-      REAL ran3,FAC
+      REAL*8 ran3,FAC
       PARAMETER (MBIG=1000000000,MSEED=161803398,MZ=0,FAC=1./MBIG)
 C     PARAMETER (MBIG=4000000.,MSEED=1618033.,MZ=0.,FAC=1./MBIG)
       INTEGER i,iff,ii,inext,inextp,k
@@ -327,7 +296,8 @@ c Numercial Recipes subroutine
       REAL gasdev3
 c Uses ran3
       INTEGER iset
-      REAL fac,gset,rsq,v1,v2,ran3
+      REAL*8 ran3
+      REAL*4 fac,gset,rsq,v1,v2
       SAVE iset,gset
       DATA iset/0/
       if (iset.eq.0) then

@@ -1,13 +1,13 @@
 ! -------------------------------------------------------------------
-      subroutine power_laws(npoints,zstart,zqso,xs,ys,
-     +                      bigA,gamma,nl,corr)
+      subroutine power_laws(npoints,zstart,zqso,xs,ys,CDDF,
+     +                      bigA,gamma,corr,nl,ni)
 ! -------------------------------------------------------------------
 C PURPOSE: prepare constants to be used in calculating the number of 
 C          lines and power laws from Kim et al 2013
       implicit none
-      integer :: i,index12,index13p1,index14,index17,index22,index12p75
-      integer :: nl,npoints
-      real*8,dimension(npoints) :: xs,ys
+      integer :: index12,index13p1,index14,index17,index22,index12p75
+      integer :: i,j,index,nl,npoints,idum,count
+      real*8,dimension(npoints) :: xs,ys,CDDF
       real*8,dimension(3) :: bigA, gamma, n
       integer,dimension(3) :: ni
       real*8 :: dmin,d12,d12p75,d13p1,d14,d17,d22
@@ -15,7 +15,7 @@ C          lines and power laws from Kim et al 2013
       real*8 :: n1,n2,n3,total
       real*8 :: z1,z1p1,z2,z2p1,zqso, gp1
       real*8 :: zstart,corr,beta, dx
-      real*8 :: s1,s2
+    
 ! -------------------------------------------------------------------
 ! CALCULATE INDICES for data manipulation
 ! -------------------------------------------------------------------     
@@ -115,7 +115,7 @@ C     corr - correction factor
 c      write (6,*) ((10**12.00)/(10**13.1))**(1.-1.46)
       corr=(int12p75to14/int13p1to14)
       write (6,*) 'Numerical correction factor=',corr
-      write (6,*) z1p1,z2p1
+      write (6,'(1x,a9,f6.4,3x,a7,f6.4)') 'z_start =',z1,'z_qso =',z2
 ! -------------------------------------------------------------------
       total=0.0
       do i=1,3
@@ -130,7 +130,7 @@ c      write (6,*) ((10**12.00)/(10**13.1))**(1.-1.46)
       ni(1)=nint(n(1))
       ni(2)=nint(n(2))
       ni(3)=nint(n(3))
-      nl=nint(n1+n2+n3)
+      nl=ni(1)+ni(2)+ni(3)
 c      write (6,*) 'A = corr*bigA/(1+gamma)'
 c      write (6,*) 'A (numerical) =',corr*bigA(1)/(gamma(1)+1.)
 c      write (6,*) 'gamma = ',gamma(1)
@@ -139,5 +139,5 @@ c      write (6,*) 'z2 =',z2
       write (6,*) 'n [12.75->14.00] (numerical) =',nint(n(1))
       write (6,*) 'n [14.00->17.00] (numerical) =',nint(n(2))
       write (6,*) 'n [17.00->22.00] (numerical) =',nint(n(3))
-      write (6,*) 'Number of lines =', nl
+      write (6,*) 'Number of lines =', nl 
       end subroutine power_laws
