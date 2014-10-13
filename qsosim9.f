@@ -14,16 +14,17 @@ c ----------------------------------------------------------------------------
 	  real*4 sum,nhi,b,z,g,z1p1,z2p1,x,gp1,w,ff
 	  real*4 a12p5,rn,a13p75,a13p1,mbp1,zqsop1,pi
 	  real*4 c,d,p,q,r,s,vlight,zleft,zright
-	  real*4 epsilon, lognhi, delta,mdelta
+	  real*8 lognhi, delta,mdelta
 	  real*4 nhills(20),blls(20),zlls(20)
-	  real*8 zqso,alpha,vmag,wstart,wend,dw,nc,nuplim,sigblur
-	  real*8 s2n,dvavoid
-	  real*8 lambda(262144),flux(262144)
-	  real*8 flerr(262144), nnflux(262144)
+	  real*8, intent(in) :: zqso,alpha,vmag,wstart,wend,dw
+	  real*8, intent(in) :: s2n,dvavoid,nc,nuplim,sigblur
+	  real*8, intent(out) ::  lambda(262144),flux(262144)
+	  real*8, intent(out) :: flerr(262144), nnflux(262144)
           real*8 alm, fik,asm
 	  real*4 n1,n2,n3
 	  real*4 factor
 	  real*8, dimension(3) :: gamma
+	  integer,dimension(3) :: ni
 	  real*8, dimension(npoints) :: xs,ys,CDDF,dummy,nhi4,z4, dummyy
 	  integer npts,npoints,idum,numlls,iflag,inoise,index,numlin
 
@@ -114,7 +115,8 @@ c Initialise random numbers
 c Call Voigt profile generator n times, once for each abs system
 	  do i=1,numlin
 	     
-c Random selection of NHI and redshifts (MODIFIED)
+c Random selection of NHI (must have appropriate number of points in a defined
+c range of NHI) and redshifts
  1	c=ran3(idum)
 	index=0
 	nhi4(i)=0
@@ -243,15 +245,16 @@ c         write(*,100)lambda(i),flux(i),flerr(i),nnflux(i)
 
       call PGENV (xmin,xmax,ymin,ymax,0,1)
       call PGLABEL ('Wavelength','f(lambda)','Linear wavelengths')
-      call pgline(npts,wda,da4smno)
-      call pgsci(5)
+c      call pgline(npts,wda,da4smno)
+      call pgslw(0.6)
+      call pgsci(1)!5)
       call pgline(npts,wda,da4conv)
       call pgsls(2)
       call pgsci(2)
-      call pgline(npts,wda,danoabs)
+c      call pgline(npts,wda,danoabs)
       call pgsls(1)
       call pgsci(3)
-      call pgline(npts,wda,da_err4)
+c      call pgline(npts,wda,da_err4)
 
 	call pgsci(1)
 	call PGENV(11.5,22.5,z1p1-1.1,z2p1-0.9,0,1)

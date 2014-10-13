@@ -9,6 +9,7 @@ C          lines and power laws from Kim et al 2013
       integer :: nl,npoints
       real*8,dimension(npoints) :: xs,ys
       real*8,dimension(3) :: bigA, gamma, n
+      integer,dimension(3) :: ni
       real*8 :: dmin,d12,d12p75,d13p1,d14,d17,d22
       real*8 :: int12to14,int13p1to14,int12p75to14
       real*8 :: n1,n2,n3,total
@@ -125,11 +126,11 @@ c      write (6,*) ((10**12.00)/(10**13.1))**(1.-1.46)
          n(i) = bigA(i)/(gp1)*((z2p1)**(gp1)-(z1p1)**(gp1))
          end if
          total=total+n(i)
-      end do
-      nl=nint(total)
-      n1=nint(n(1))
-      n2=nint(n(2))
-      n3=nint(n(3))
+      end do   
+      ni(1)=nint(n(1))
+      ni(2)=nint(n(2))
+      ni(3)=nint(n(3))
+      nl=nint(n1+n2+n3)
 c      write (6,*) 'A = corr*bigA/(1+gamma)'
 c      write (6,*) 'A (numerical) =',corr*bigA(1)/(gamma(1)+1.)
 c      write (6,*) 'gamma = ',gamma(1)

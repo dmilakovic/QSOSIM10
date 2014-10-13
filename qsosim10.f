@@ -12,7 +12,8 @@ c  OUTPUT:  artificial SDSS catalogue
       REAL*8 :: wstart,wend,dw
       REAL*8 :: nc,nuplim,dvavoid
       REAL*8 :: corr, zstart
-      REAL*8,DIMENSION(3) :: bigA,gamma
+      REAL*8,DIMENSION(3) :: bigA,gamma,n
+      INTEGER,DIMENSION(3) :: ni
       REAL*8,DIMENSION(nrows) :: ra,dec,zqso,alpha,vmag,s2n,sigblur
       REAL*8 :: lambda(262144),flux(262144), da4(262144)
       REAL*8 :: flerr(262144), nnflux(262144)
@@ -50,16 +51,17 @@ c  OUTPUT:  artificial SDSS catalogue
 ! ---------------------------------------------------------------------
 ! GENERATE ARTIFICIAL SPECTRA
 ! ---------------------------------------------------------------------
-      do i=25,25
+      do i=1,1
          write (descriptor,'(I6.6)') i
          write (6,*)'=================================================='
          write (6,*)'               Spectrum no. ',descriptor
          write (6,*)'=================================================='
+
          call power_laws(npoints,zstart,zqso(i),xs,ys,
-     +                      bigA,gamma,nl,corr)
+     +                      bigA,gamma,nl,n,ni,corr)
          call qsosim9(zqso(i),alpha(i),vmag(i),wstart,wend,dw,
      +          nc,nuplim,sigblur(i),s2n(i),inoise,dvavoid,npts,
-     +          lambda,flux,flerr,nnflux,npoints,xs,ys,CDDF,nl)
+     +          lambda,flux,flerr,nnflux,npoints,xs,ys,CDDF,nl,ni)
          outfile='spec-'//descriptor//'.fits'
          call writefits(outfile,ra(i),dec(i),zqso(i),alpha(i),npts,
      &                     lambda,flux,flerr,nnflux)
