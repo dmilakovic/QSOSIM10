@@ -112,8 +112,9 @@ C     corr - correction factor
       z2p1=zqso+1.
       beta=abs((ys(index14)-ys(index12))/(xs(index14)-xs(index12)))
 c      write (6,*) ((10**12.00)/(10**13.1))**(1.-1.46)
-      corr=(int12p75to14/int13p1to14)!*((10**12.00)/(10**13.1))**(1.-1.45)
+      corr=(int12p75to14/int13p1to14)
       write (6,*) 'Numerical correction factor=',corr
+      write (6,*) z1p1,z2p1
 ! -------------------------------------------------------------------
       total=0.0
       do i=1,3

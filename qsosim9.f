@@ -11,7 +11,7 @@ c ----------------------------------------------------------------------------
 	  real*4 da_err4(262144),da4smno(262144)
 	  real*8 da(262144),da_err(262144),da_err4mod(262144)
 	  real*4 wems(30),relstr(30)
-	  real*4 sum,nhi,b,z,g,z1p1,z2p1,beta,x,gp1,w,ff
+	  real*4 sum,nhi,b,z,g,z1p1,z2p1,x,gp1,w,ff
 	  real*4 a12p5,rn,a13p75,a13p1,mbp1,zqsop1,pi
 	  real*4 c,d,p,q,r,s,vlight,zleft,zright
 	  real*4 epsilon, lognhi, delta,mdelta
@@ -98,10 +98,8 @@ c g is from dn=A(1+z)^g dz, beta is from dn propto N^{-beta} dN.
 c a13p75 is the value of A for lines above logN=13.75.
 c gp1= gamma+1, mbp1=1-beta, nc is N cutoff, n is total no. of lines
       a13p75=10.0
-      beta=1.7
       z1p1=(wstart/1215.67)
       z2p1=zqsop1
-      mbp1=-beta+1.0
 
 c Calculate the total no. of lines
       n=numlin

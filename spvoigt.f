@@ -58,7 +58,7 @@
       double precision fcollallzn
       double precision clvaldrop
 
-c      write(*,*)"   col, z, b", col, z, b
+*      write(*,'(a13,3d10.3)')"   col, z, b", col, z, b
 
 *     set column densities used to be linear
       indvar=0
@@ -242,7 +242,7 @@ c            write(*,*) "Line in channel no.",chand
 *	    (i.e. collsmin=1.0d15)
          if(wavlow.le.wtemp.and.dble(cold).gt.collsmin) then
             call vp_lycont(cold,flx,wav,npts,zdp1)
-*              if(verbose) write(6,*) 'vp_lycont exit OK'
+*              write(6,*) 'vp_lycont exit OK'
          end if
       end if
 *

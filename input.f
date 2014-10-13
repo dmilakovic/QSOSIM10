@@ -56,7 +56,7 @@ c       numlls,dvavoid,nhills(i),blls(i),zlls(i)
       wend=10400     !DR10 Ahn et al. 2013
       dw=0.05
       nc=1.00e12
-      nuplim=1.00e14
+      nuplim=1.00e17
       sigblur=3.0
       s2n=100
       inoise=1

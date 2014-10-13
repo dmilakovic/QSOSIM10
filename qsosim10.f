@@ -55,7 +55,7 @@ c  OUTPUT:  artificial SDSS catalogue
          write (6,*)'=================================================='
          write (6,*)'               Spectrum no. ',descriptor
          write (6,*)'=================================================='
-         call power_laws(npoints,zstart,zqso,xs,ys,
+         call power_laws(npoints,zstart,zqso(i),xs,ys,
      +                      bigA,gamma,nl,corr)
          call qsosim9(zqso(i),alpha(i),vmag(i),wstart,wend,dw,
      +          nc,nuplim,sigblur(i),s2n(i),inoise,dvavoid,npts,
@@ -65,7 +65,9 @@ c  OUTPUT:  artificial SDSS catalogue
      &                     lambda,flux,flerr,nnflux)
          write (*,*)'--------------------------------------------------'
       end do
-      
+! ---------------------------------------------------------------------
+! PLOT QSO SPECTRUM OF THE LAST SOURCE
+! ---------------------------------------------------------------------      
       call PGBEGIN (0,'/xserve',1,1)
       call PGSLW(1)
       call PGENV (3550.,10500.,0.0,1e-14,0,1)
@@ -73,4 +75,7 @@ c  OUTPUT:  artificial SDSS catalogue
       call pgline(npts,real(lambda),real(flux))
       call pgsci(2)
       call pgline(npts,real(lambda),real(nnflux))
+      call PGEND
+!======================================================================
       END PROGRAM qsosim10
+!======================================================================
