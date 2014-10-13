@@ -5,7 +5,7 @@ c Compile using Makefile
 c ----------------------------------------------------------------------------
 	SUBROUTINE QSOSIM9(zqso,alpha,vmag,wstart,wend,dw,nc,nuplim,
      :          sigblur,s2n,inoise,dvavoid,npts,lambda,flux,
-     :          flerr,nnflux,npoints,xs,ys,CDDF,numlin,ni,nhi4,z4)
+     :          flerr,nnflux,npoints,numlin,ni,nhi4,z4)
 	  real*4 wda(262144),danoabs(262144),tau(262144)
 	  real*4 da4(262144),da4conv(262144)
 	  real*4 da_err4(262144),da4smno(262144)
@@ -26,7 +26,7 @@ c ----------------------------------------------------------------------------
 	  real*4, dimension(3) :: bins
 	  real*8, dimension(3) :: gamma
 	  integer,dimension(3) :: ni
-	  real*8, dimension(npoints) :: xs,ys,CDDF,dummy, dummyy
+	  real*8, dimension(npoints) :: dummy, dummyy
 	  real*8,dimension(numlin) :: nhi4,z4
 	  integer npts,npoints,idum,numlls,iflag,inoise,index,numlin
 
@@ -114,7 +114,6 @@ c Initialise random numbers
       idum=time()
       do i=1,npoints
 	 dummy(i)=dble(i)
-	 dummyy(i)=dble((nc**mbp1-(10**xs(i))**mbp1)/(nc)**mbp1)
       end do
 
 c Call Voigt profile generator n times, once for each abs system
@@ -185,7 +184,7 @@ c inoise=0 is constant.  inoise=1 gets worse towards blue. See qsosim9.pdf.
       end if
 	
 c Plot spectrum
-      call PGBEGIN (0,'/vcps',1,3)
+      call PGBEGIN (0,'/cps',1,3)
       xmin=wstart
       xmax=wend
       ymin=0.0
@@ -229,7 +228,7 @@ c         write(*,100)lambda(i),flux(i),flerr(i),nnflux(i)
 	call PGLABEL('log NHI','z','Random choice of redshift')
 	call PGPT(numlin,real(nhi4),real(z4),3)
 	call pgsls(1)
-	call PGENV(12.0,22.0,0,real(numlin),0,1)
+	call PGENV(12.0,22.0,0,real(numlin)/16.0,0,1)
 	call PGLABEL('log NHI','No of lines','Choice of NHI')
 c	call PGBIN(3,bins,real(ni),.FALSE.)
 	call PGHIST(numlin,real(nhi4),12.0,22.0,200,1)

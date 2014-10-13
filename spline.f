@@ -79,7 +79,7 @@ c      errav = 0.0
             dx=xs(i+1)-xs(i)
             dxe=xe(i+1)-xe(i)
          end if
-         total=total+ys(i)*dx  !ys*dx
+         total=total+ye(i)*dxe  !ys*dx
       end do
       do i=1,npts
          sumN(i)=0
@@ -96,7 +96,7 @@ c      errav = 0.0
             sumN(i)=sumN(i)+ys(j)*dx
             lines(i)=lines(i)+ye(j)*dxe
          end do
-         CDDF(i)=sumN(i)/total  !sumN(i)
+         CDDF(i)=lines(i)/total  !sumN(i)
       end do
       
 !====================================================================

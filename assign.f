@@ -57,87 +57,54 @@
       z2p1=zqso+1.
       idum=time()
       index=0
-      count=0
-      do while (count.lt.ni(1))
- 1       c=ran3(idum)  
+      do i=1,numlin
          dmin=1.0
-         if((c.ge.CDDF(index12)).and.(c.lt.CDDF(index14)))then 
-            count=count+1
-            do j=1,npoints
+         delta=1.0
+         nhi4(i)=0
+         z4(i)=0
+ 1       c=ran3(idum)
+         if (c.lt.1.0) then
+! -------------------------------------------------------------------
+	    do j=1,npoints
                delta=abs(c-CDDF(j))
                if (delta.lt.dmin) then
                   dmin=delta
                   index=j
                end if
             end do
-            lognhi=xs(index)
-            nhi=10**xs(index)
-            nhi4(count)=xs(index)
-            d=ran3(idum)	
-            gp1=gamma(1)+1.
-            p=z2p1**gp1
-            q=z1p1**gp1
-            x=dble(alog10(real(d*(p-q)+q)))
-            x=x/gp1
-            z=10**x -1.0
-            z4(count)=z
          else
             goto 1
          end if
-      end do 
-      do while (count.lt.(ni(1)+ni(2)))
- 2       c=ran3(idum)
-         dmin=1.0
-         if((c.ge.CDDF(index14)).and.(c.lt.CDDF(index17)))then
-            count=count+1
-            do j=1,npoints
-               delta=abs(c-CDDF(j))
-               if (delta.lt.dmin) then
-                  dmin=delta
-                  index=j
-               end if
-            end do
-            lognhi=xs(index)
-            nhi=10**xs(index)
-            nhi4(count)=xs(index)
-            d=ran3(idum)	
-            gp1=gamma(2)+1.
+         lognhi=xs(index)
+         nhi4(i)=xs(index)
+! --------------------------------------------------------------------
+         d=ran3(idum)
+         if ((lognhi.ge.12.0).and.(lognhi.lt.14.0)) then
+            g=gamma(1)
+            gp1=g+1.
             p=z2p1**gp1
             q=z1p1**gp1
-            x=dble(alog10(real(d*(p-q)+q)))
+            x=alog10(real(d*(p-q)+q))
             x=x/gp1
             z=10**x -1.0
-            z4(count)=z
-         else
-            goto 2
-         end if
-      end do 
-      do while (count.lt.(ni(1)+ni(2)+ni(3)))
- 3       c=ran3(idum)
-         dmin=1.0
-         if((c.ge.CDDF(index17)).and.(c.lt.CDDF(index22)))then 
-            count=count+1
-            do j=1,npoints
-               delta=abs(c-CDDF(j))
-               if (delta.lt.dmin) then
-                  dmin=delta
-                  index=j
-               end if
-            end do
-            lognhi=xs(index)
-            nhi=10**xs(index)
-            nhi4(count)=xs(index)
-            d=ran3(idum)	
-            gp1=gamma(3)+1.
+         else if ((lognhi.ge.14.0).and.(lognhi.lt.17.0)) then
+            g=gamma(2)
+            gp1=g+1.
             p=z2p1**gp1
             q=z1p1**gp1
-            x=dble(alog10(real(d*(p-q)+q)))
+            x=alog10(real(d*(p-q)+q))
             x=x/gp1
             z=10**x -1.0
-            z4(count)=z
-         else
-            goto 3
+         else if ((lognhi.ge.17.0).and.(lognhi.lt.22.0)) then
+            g=gamma(3)
+            gp1=g+1.
+            p=z2p1**gp1
+            q=z1p1**gp1
+            x=alog10(real(d*(p-q)+q))
+            x=x/gp1
+            z=10**x -1.0
          end if
+         z4(i)=z
       end do 
 
       end subroutine assign

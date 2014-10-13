@@ -52,7 +52,7 @@ c  OUTPUT:  artificial SDSS catalogue
 ! ---------------------------------------------------------------------
 ! GENERATE ARTIFICIAL SPECTRA
 ! ---------------------------------------------------------------------
-      do i=15,15
+      do i=25,25
          zend=zqso(i)
          write (descriptor,'(I6.6)') i
          write (6,*)'=================================================='
@@ -66,7 +66,7 @@ c  OUTPUT:  artificial SDSS catalogue
          call assign(npoints,zstart,zqso(i),xs,CDDF,gamma,nl,ni,nhi4,z4)
          call qsosim9(zqso(i),alpha(i),vmag(i),wstart,wend,dw,nc,nuplim,
      +          sigblur(i),s2n(i),inoise,dvavoid,npts,lambda,flux,flerr,
-     +          nnflux,npoints,xs,ys,CDDF,nl,ni,nhi4,z4)
+     +          nnflux,npoints,nl,ni,nhi4,z4)
          outfile='spec-'//descriptor//'.fits'
          call writefits(outfile,ra(i),dec(i),zqso(i),alpha(i),npts,
      &                     lambda,flux,flerr,nnflux)
@@ -75,18 +75,18 @@ c  OUTPUT:  artificial SDSS catalogue
 ! ---------------------------------------------------------------------
 ! PLOT QSO SPECTRUM OF THE LAST SOURCE
 ! --------------------------------------------------------------------- 
-      call PGBEGIN (0,'/xserve',1,2)
-      call PGSLW(1)
-      call PGENV (3550.,10500.,0.0,5e-15,0,1)
-      call PGLABEL ('lambda','flux','QSO spectrum')
-      call pgline(npts,real(lambda),real(flux))
-      call pgsci(2)
-      call pgline(npts,real(lambda),real(nnflux))
-      call pgsci(1)
-      call PGENV(11.5,22.5,2.00,2.1,0,1)
-      call PGLABEL('log NHI','z','Random choice of NHI & redshift')
-      call PGPT(nl,real(nhi4),real(z4),3)
-      call PGEND
+c      call PGBEGIN (0,'/xserve',1,2)
+c      call PGSLW(1)
+c      call PGENV (3550.,10500.,0.0,5e-15,0,1)
+c      call PGLABEL ('lambda','flux','QSO spectrum')
+c      call pgline(npts,real(lambda),real(flux))
+c      call pgsci(2)
+c      call pgline(npts,real(lambda),real(nnflux))
+c      call pgsci(1)
+c      call PGENV(11.5,22.5,2.00,2.1,0,1)
+c      call PGLABEL('log NHI','z','Random choice of NHI & redshift')
+c      call PGPT(nl,real(nhi4),real(z4),3)
+c      call PGEND
 !======================================================================
       END PROGRAM qsosim10
 !======================================================================
