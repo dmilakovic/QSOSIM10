@@ -54,7 +54,7 @@ c       numlls,dvavoid,nhills(i),blls(i),zlls(i)
 
       wstart=3650
       wend=10400     !DR10 Ahn et al. 2013
-      dw=0.05
+      dw=0.8
       nc=1.00e12
       nuplim=1.00e17
       sigblur=3.0
@@ -77,7 +77,7 @@ c Generate random coordinates
           dec(i)=decmin+ddec*ran3(idum)
           zqso(i)=zmin+float(i)*dz/nobj
           alpha(i)=-0.7!alphamin+dalpha*ran3(idum)
-          vmag(i)=16.0
+          vmag(i)=18.0
       END DO
 c-------------------------------------------------------------------------------
       unit=1

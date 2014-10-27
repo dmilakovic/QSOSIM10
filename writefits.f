@@ -45,8 +45,8 @@ c Define primary array parameters
 c-------------------------------------------------------------------------------
 c-------------------------------------------------------------------------------
 c Define data to be inputted into fits file
-      DATA ttype1/'RA','DEC','ZQSO','ALPHA'/
-      DATA ttype2/'LAMBDA','FLUX','IVAR','NNFLUX'/
+      DATA ttype1/'RA','DEC','Zqso','alpha'/
+      DATA ttype2/'loglam','flux','ivar','nnflux'/
       
       DATA tform1/'E','E','E','E'/
       DATA tform2/'E','E','E','E'/
@@ -64,10 +64,10 @@ c Rename header column names and assign values
       call FTMKYD(unit,'RA',ra,5,'',status)
       call FTMNAM(unit,'ttype2','DEC',status)
       call FTMKYD(unit,'DEC',dec,5,'',status)
-      call FTMNAM(unit,'ttype3','ZQSO',status)
-      call FTMKYD(unit,'ZQSO',zqso,5,'',status)
-      call FTMNAM(unit,'ttype4','ALPHA',status)
-      call FTMKYD(unit,'ALPHA',alpha,5,'',status)
+      call FTMNAM(unit,'ttype3','zqso',status)
+      call FTMKYD(unit,'zqso',zqso,5,'',status)
+      call FTMNAM(unit,'ttype4','alpha',status)
+      call FTMKYD(unit,'alpha',alpha,5,'',status)
 c      call ftgerr(status,errtext)
 c      print *,status,' ',errtext
 c Create the second binary table HDU with data pertaining each QSO

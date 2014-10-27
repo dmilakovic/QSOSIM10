@@ -6,7 +6,7 @@ c  OUTPUT:  artificial SDSS catalogue
       IMPLICIT NONE
       CHARACTER :: infile*20, outfile*20, descriptor*6
       INTEGER,PARAMETER :: nrows=25
-      INTEGER,PARAMETER :: npoints=10000
+      INTEGER,PARAMETER :: npoints=1000
       INTEGER :: i,j,inoise, numlin, npts, nl
       INTEGER,DIMENSION(nrows) :: numlls
       REAL*8 :: wstart,wend,dw
@@ -52,7 +52,7 @@ c  OUTPUT:  artificial SDSS catalogue
 ! ---------------------------------------------------------------------
 ! GENERATE ARTIFICIAL SPECTRA
 ! ---------------------------------------------------------------------
-      do i=25,25
+      do i=13,13
          zend=zqso(i)
          write (descriptor,'(I6.6)') i
          write (6,*)'=================================================='
