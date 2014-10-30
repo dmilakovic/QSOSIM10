@@ -201,7 +201,7 @@ c inoise=0 is constant.  inoise=1 gets worse towards blue. See qsosim9.pdf.
      +        +0.22*exp(-.5*(((wda(i)-9000.0)/8e2)**2))
      +        +0.10*exp(-.5*(((wda(i)-6000.0)/9e2)**2))
      +        +0.02*alog10(wda(i)-3.1)
-	 signal(i)=da4conv(i)*t*pixsize*area/en(i) !e-
+	 signal(i)=da4conv(i)*t*pixsize*area/(en(i)*qe(i)) !e-
 	 sky(i)=abs(0.1*gasdev3(idum)*signal(i))   !e-
 	 !use different values for red and blue arms of the spectrographs
 	 if((wda(i).ge.3650).and.(wda(i).lt.6050))then
@@ -215,7 +215,7 @@ c inoise=0 is constant.  inoise=1 gets worse towards blue. See qsosim9.pdf.
 	 ron2=(2.25+0.2*gasdev3(idum))**2
 	 ! ns - noise in e-
         ns(i)=sign(1.0,c)*
-     :         sqrt(signal(i)+(sky(i)+dark)*npix+ron2*(900/55))/qe(i)
+     :         sqrt(signal(i)+(sky(i)+dark)*npix+ron2*(900/55))
 	 !noise in ergs/s/cm^2/A
 	 noise(i)=ns(i)*en(i)/(t*pixsize*area)
         da4smno(i) = da4conv(i)+noise(i)

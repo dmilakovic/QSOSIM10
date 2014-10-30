@@ -68,8 +68,8 @@ c  OUTPUT:  artificial SDSS catalogue
      +          sigblur(i),s2n(i),inoise,dvavoid,npts,lambda,flux,flerr,
      +          nnflux,npoints,nl,ni,nhi4,z4)
          outfile='spec-'//descriptor//'.fits'
-         call writefits(outfile,ra(i),dec(i),zqso(i),alpha(i),npts,
-     &                     lambda,flux,flerr,nnflux)
+         call writefits(outfile,ra(i),dec(i),zqso(i),alpha(i),vmag(i),
+     &                     npts,lambda,flux,flerr,nnflux)
          write (*,*)'--------------------------------------------------'
       end do
 ! ---------------------------------------------------------------------
