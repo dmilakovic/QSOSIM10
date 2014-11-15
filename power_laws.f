@@ -92,7 +92,7 @@ C          lines and power laws from Kim et al 2013
          dx=10**xs(i+1)-10**xs(i)             
          int13p1to14=int13p1to14+10**ys(i)*dx
       end do
-      corr=int12p75to14/int13p1to14
+      corr=int12to14/int13p1to14
 c      write (6,*) 'int[12.75->14] = ',int12p75to14
 c      write (6,*) 'int[13.10->14] = ',int13p1to14
 C     corr - correction factor

@@ -18,8 +18,8 @@
 c
 c	subroutine to take care of Lyman limit absorption
 c
-      write(6,'(a25,3x,d10.5,3x,f8.3)')' Lyman limit abs included',
-     :                                    cold, zdp1-1D0
+c      write(6,'(a25,3x,d10.5,3x,f8.3)')' Lyman limit abs included',
+c     :                                    cold, zdp1-1D0
 
 *	copy coeffts to single array
 *	call vp_cfcopy(ichunk,1)

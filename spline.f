@@ -1,5 +1,5 @@
 !====================================================================
-      subroutine spline(npts,xs,ys,CDDF)
+      subroutine spline(npts,nc,nuplim,xs,ys,CDDF)
 !====================================================================
 ! Spline interpolation
 ! Comments: values of function f(x) are calculated in n base points
@@ -13,6 +13,7 @@
       real*8, dimension(n) :: xi,yi,b,c,d
       real*8, dimension(npts) :: xs,xe,ys,ye,z,CDDF,H
       real*8, dimension(npts) :: sumN,sumX,sumW, weight, lines
+      real*8 :: nc, nuplim
       integer i,j,numlin,npts,nl
       real*8 ispline
       real*8 dx, dxe, total
@@ -33,8 +34,8 @@ c s(x) = y(i) + b(i)*(x-x(i)) + c(i)*(x-x(i))**2 + d(i)*(x-x(i))**3
           data d/2.41112094E-02,1.91877093E-02,8.12238082E-02,
      +          -0.113830194,-4.29184213E-02,-0.264353245,-0.179997146,
      +          -0.179997146/
-      xmin = 12.00  !12.00
-      xmax = 22.00  !22.00
+      xmin = alog10(real(nc))  !12.00
+      xmax = alog10(real(nuplim))  !22.00
 !====================================================================
       write (6,*)'=================================================='
       write (6,*) 'Started SPLINE!'

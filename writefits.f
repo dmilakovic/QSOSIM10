@@ -1,6 +1,6 @@
 c-------------------------------------------------------------------------------
-      SUBROUTINE writefits(outfile,ra,dec,zqso,alpha,vmag,npts,lambda,
-     &                     flux,flerr,nnflux)
+      SUBROUTINE writefits(outfile,ra,dec,zqso,alpha,rmag,npts,lambda,
+     &                     flux,flerr,nnflux,flux_nc)
 c     PURPOSE: create a fits file with parameters returned by qsosim9
 c     OUTPUT:  spectrum.fits file with lambda,flux,sigma,no-noise-flux
 c-------------------------------------------------------------------------------
@@ -9,10 +9,10 @@ c GENERAL DECLARATIONS
 c Declare variables
       INTEGER :: unit,i,j,status,blocksize,bitpix,naxis,naxes,npts
       INTEGER :: nrows, tfields, varidat, colnum, idum, inoise
-      REAL*8 :: lambda(npts),flux(npts), flerr(npts), nnflux(npts)
-      REAL*8 :: ra,dec,zqso,alpha,vmag
+      REAL*8,dimension(npts) :: lambda,flux,flerr,nnflux,flux_nc
+      REAL*8 :: ra,dec,zqso,alpha,rmag
       CHARACTER*20 :: ttype1(5), tunit1(5), tform1(5)
-      CHARACTER*20 :: ttype2(4), tunit2(4), tform2(4)
+      CHARACTER*20 :: ttype2(5), tunit2(5), tform2(5)
       CHARACTER*20 :: outfile, extname 
       CHARACTER*30 :: errtext
       LOGICAL :: simple, extend
@@ -45,13 +45,13 @@ c Define primary array parameters
 c-------------------------------------------------------------------------------
 c-------------------------------------------------------------------------------
 c Define data to be inputted into fits file
-      DATA ttype1/'RA','DEC','Zqso','alpha','v_mag'/
-      DATA ttype2/'loglam','flux','ivar','nnflux'/
+      DATA ttype1/'RA','DEC','Zqso','alpha','r_mag'/
+      DATA ttype2/'loglam','flux','ivar','nnflux','flux_nc'/
       
       DATA tform1/'E','E','E','E','E'/
-      DATA tform2/'E','E','E','E'/
+      DATA tform2/'E','E','E','E','E'/
       DATA tunit1/'','','','',''/
-      DATA tunit2/'','','',''/
+      DATA tunit2/'','','','',''/
 c Create the first binary table HDU
       nrows=1
       tfields=5
@@ -68,15 +68,15 @@ c Rename header column names and assign values
       call FTMKYD(unit,'zqso',zqso,5,'',status)
       call FTMNAM(unit,'ttype4','alpha',status)
       call FTMKYD(unit,'alpha',alpha,5,'',status)
-      call FTMNAM(unit,'ttype5','v_mag',status)
-      call FTMKYD(unit,'v_mag',vmag,5,'',status)
+      call FTMNAM(unit,'ttype5','r_mag',status)
+      call FTMKYD(unit,'r_mag',rmag,5,'',status)
 c      call ftgerr(status,errtext)
 c      print *,status,' ',errtext
 c Create the second binary table HDU with data pertaining each QSO
       nrows=npts
  250  format(f10.5,2x,f10.5,2x,f10.5,2x,f10.5)
 c      write (*,250)flerr(1:10)
-      tfields=4
+      tfields=5
       extname='QSO'
       call FTIBIN(unit,nrows,tfields,ttype2,tform2,tunit2,
      &            extname,varidat,status)
@@ -84,6 +84,7 @@ c      write (*,250)flerr(1:10)
       call FTPCLD(unit,2,1,1,nrows,flux,status)
       call FTPCLD(unit,3,1,1,nrows,flerr,status)
       call FTPCLD(unit,4,1,1,nrows,nnflux,status)
+      call FTPCLD(unit,5,1,1,nrows,flux_nc,status)
 c Close fits file
       call FTCLOS(unit,status)
       call ftgerr(status,errtext)
