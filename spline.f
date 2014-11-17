@@ -133,7 +133,18 @@ c      write (6,*) bigX
       nl=nint(lines(npts))!*gauss16(func,zstart,zend))
 c      write (6,*) 'No. of lines in log NHI range, F(NHI) = ', nl
 !====================================================================      
-      
+      call PGBEGIN (0,'/xserve',1,1)
+c      call PGSLW(1)
+      call PGENV (12.0,22.0,0.0,1.0,0,1)
+c      call PGLABEL ('lambda','flux','QSO spectrum')
+      call pgline(npts,real(xs),real(CDDF))
+c      call pgsci(2)
+c      call pgline(npts,real(lambda),real(nnflux))
+c      call pgsci(1)
+c      call PGENV(11.5,22.5,2.00,2.1,0,1)
+c      call PGLABEL('log NHI','z','Random choice of NHI & redshift')
+c      call PGPT(nl,real(nhi4),real(z4),3)
+      call PGEND
       end subroutine spline
 
 

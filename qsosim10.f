@@ -6,15 +6,19 @@ c  OUTPUT:  artificial SDSS catalogue
       IMPLICIT NONE
       CHARACTER :: infile*20, outfile*20, descriptor*8,command*20
       CHARACTER :: home*120
-      INTEGER,PARAMETER :: nrows=25
       INTEGER,PARAMETER :: npoints=1000
-      INTEGER :: i,j,inoise, numlin, npts, nl,s
+      INTEGER :: i,j,inoise, numlin, npts, nl,s,option,nrows
       REAL*8 :: wstart,wend,dw
       REAL*8 :: nc,nuplim,dvavoid
       REAL*8 :: corr, zstart,zend
       REAL*8,DIMENSION(3) :: bigA,gamma,n
       INTEGER,DIMENSION(3) :: ni
-      REAL*8,DIMENSION(25) :: ra,dec,zqso,alpha,rmag,s2n,sigblur
+      CHARACTER,DIMENSION(:),allocatable :: SDSS_name*18
+      INTEGER,DIMENSION(:),allocatable :: thing_id,plate,mjd,
+     &                                   fiber,z_flag,npix
+      REAL*8, DIMENSION(:),allocatable :: ra,dec,zqso,alpha,alpha_fit,
+     &                                   begin_wave,rmag
+      REAL*8,DIMENSION(:),alloacatable :: ovi,civ
       REAL*8,DIMENSION(262144) :: lambda,flux, da4
       REAL*8,DIMENSION(262144) :: flerr, nnflux,flux_nc
       REAL*8, DIMENSION(:),ALLOCATABLE :: xs,ys,CDDF,H
@@ -28,7 +32,7 @@ c  OUTPUT:  artificial SDSS catalogue
 ! DATA USED
 ! ---------------------------------------------------------------------
       ! from Kim et al 2014
-      !     log NHI        log A        log gamma
+      !     log NHI        log A         gamma
       !   [13.1,14.0]      1.52+-0.05   1.51+-0.09
       !   [14.0,17.0]      0.72+-0.08   2.16+-0.14
       ! from Unknown
@@ -40,26 +44,55 @@ c  OUTPUT:  artificial SDSS catalogue
 ! ---------------------------------------------------------------------
 ! READ INPUT PARAMETERS
 ! ---------------------------------------------------------------------
-      infile='sin.fits'
+      home = '/Users/dm/Documents/GitHub/QSOSIM10'
       write (6,*)'=================================================='
       write (6,*)'                    QSOSIM 10                     '
       write (6,*)'=================================================='
-      call readfits(infile,wstart,wend,dw,nc,nuplim,inoise,dvavoid,
-     &             ra,dec,zqso,alpha,rmag,sigblur,s2n)
+      write (6,*)'What would you like to create?'
+      write (6,50)'(1)','SDSS'
+      write (6,50)'(2)','random (legacy)'
+      write (6,*)'=================================================='
+      write (6,'(1x,a13)',advance='no')'I choose... '
+      read (*,'(i1)') option
+      if (option.eq.1) then
+         infile='DR10Q_r.fits'
+         call read_nrows(home,infile,nrows)
+         write(6,*) nrows
+         allocate(SDSS_name(nrows)); allocate(thing_id(nrows));
+         allocate(plate(nrows));     allocate(mjd(nrows))
+         allocate(fiber(nrows));     allocate(z_flag(nrows))
+         allocate(npix(nrows));      allocate(ra(nrows))
+         allocate(dec(nrows));       allocate(zqso(nrows))
+         allocate(alpha(nrows));     allocate(alpha_fit(nrows))
+         allocate(begin_wave(nrows));allocate(rmag(nrows))
+         call SDSS_readfits(home,infile,nrows,SDSS_name,RA,DEC,thing_id,
+     &         plate,mjd,fiber,zqso,z_flag,alpha,alpha_fit,npix,
+     &         begin_wave,rmag)
+         nc=1e12
+         nuplim=1e22
+         dw=0.0001 !pixel resolution of SDSS
+c      else if (option.eq.2) then        
+c         infile='sin.fits'
+c         call readfits(infile,wstart,wend,dw,nc,nuplim,inoise,dvavoid,
+c     &         ra,dec,zqso,alpha,rmag,sigblur,s2n)
+      end if
+ 50   format (3x,a3,2x,a15)
  100  format(f10.5,2x,f10.5,2x,f8.5,2x,f8.5)
-      zstart=(wstart/1215.67)-1.
+
 ! ---------------------------------------------------------------------
 ! GET THE SPLINE
 ! ---------------------------------------------------------------------
       allocate(xs(npoints))
       allocate(ys(npoints))
       allocate(CDDF(npoints))
-      write (6,*) nc, nuplim
       call spline(npoints,nc,nuplim,xs,ys,CDDF)
 ! ---------------------------------------------------------------------
 ! GENERATE ARTIFICIAL SPECTRA
 ! ---------------------------------------------------------------------
       do i=25,25
+         wstart=begin_wave(i)
+         wend=begin_wave(i)+npix(i)*dw 
+         zstart=(10**begin_wave(i)/1215.67)-1.
          zend=zqso(i)
          write (descriptor,'(I8.8)') i
          write (6,*)'=================================================='
@@ -68,25 +101,22 @@ c  OUTPUT:  artificial SDSS catalogue
 
          call power_laws(npoints,zstart,zqso(i),xs,ys,CDDF,
      +                      bigA,gamma,corr,nl,ni)
-         allocate(nhi4(nl))
-         allocate(z4(nl))
-         allocate(mask(nl))
+         allocate(nhi4(nl)); allocate(z4(nl)); allocate(mask(nl))
          call assign(npoints,zstart,zqso(i),xs,CDDF,gamma,nl,ni,nhi4,z4)
          call write_cloudy_input(home,descriptor,zqso(i),nl,nhi4,mask,s)
-         do j=1,nl
-            write(6,*) j, mask(i)
-         end do
          call cloudy(home,descriptor,mask,nl,s)
+         allocate(ovi(s)); allocate(civ(s))
 c         call read_cloudy_output()
-         call qsosim9(home,zqso(i),alpha(i),rmag(i),wstart,wend,dw,nc,
-     +         nuplim,sigblur(i),s2n(i),inoise,dvavoid,npts,lambda,flux,
-     +         flerr,nnflux,flux_nc,npoints,nl,ni,nhi4,z4)
+c         call qsosim9(home,zqso(i),alpha(i),rmag(i),wstart,wend,dw,nc,
+c     +         nuplim,sigblur(i),s2n(i),inoise,dvavoid,npts,lambda,flux,
+c     +         flerr,nnflux,flux_nc,npoints,nl,ni,nhi4,z4)
          outfile='spec-'//descriptor//'.fits'
-         call writefits(outfile,ra(i),dec(i),zqso(i),alpha(i),rmag(i),
-     &                     npts,lambda,flux,flerr,nnflux,flux_nc)
+c         call writefits(outfile,ra(i),dec(i),zqso(i),alpha(i),rmag(i),
+c     &                     npts,lambda,flux,flerr,nnflux,flux_nc)
          write (*,*)'--------------------------------------------------'
          deallocate(nhi4)
          deallocate(z4)
+         deallocate(mask)
       end do
       
 ! ---------------------------------------------------------------------
