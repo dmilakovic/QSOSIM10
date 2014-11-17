@@ -3,7 +3,7 @@
       implicit none
       integer :: i,j,nl,s,t
       character :: filename*90, line*100, cwd*30, home*120, folder*90
-      character :: descriptor*8,num*4,makedirectory*100,lognhi*10,zed*10
+      character ::descriptor*16,num*4,makedirectory*100,lognhi*10,zed*10
       real*8,dimension(nl) :: nhi4
       integer,dimension(nl) :: mask
       real*8 :: z

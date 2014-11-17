@@ -133,7 +133,7 @@ c      write (6,*) bigX
       nl=nint(lines(npts))!*gauss16(func,zstart,zend))
 c      write (6,*) 'No. of lines in log NHI range, F(NHI) = ', nl
 !====================================================================      
-      call PGBEGIN (0,'/xserve',1,1)
+      call PGBEGIN (0,'/null',1,1)
 c      call PGSLW(1)
       call PGENV (12.0,22.0,0.0,1.0,0,1)
 c      call PGLABEL ('lambda','flux','QSO spectrum')

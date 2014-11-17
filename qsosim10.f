@@ -4,12 +4,13 @@ c  PURPOSE: call other subroutines to generate artificial spectra!
 c  OUTPUT:  artificial SDSS catalogue
 !======================================================================
       IMPLICIT NONE
-      CHARACTER :: infile*20, outfile*20, descriptor*8,command*20
-      CHARACTER :: home*120
+      CHARACTER :: infile*20, outfile*30, descriptor*16,command*20
+      CHARACTER :: home*120,name*18, splate*4,smjd*5,sfiber*4
       INTEGER,PARAMETER :: npoints=1000
       INTEGER :: i,j,inoise, numlin, npts, nl,s,option,nrows
-      REAL*8 :: wstart,wend,dw
-      REAL*8 :: nc,nuplim,dvavoid
+      INTEGER :: z_w,id,iplate,imjd,ifiber,ipix
+      REAL*8 :: wstart,wend,dw,mags(5)
+      REAL*8 :: nc,nuplim,sigblur
       REAL*8 :: corr, zstart,zend
       REAL*8,DIMENSION(3) :: bigA,gamma,n
       INTEGER,DIMENSION(3) :: ni
@@ -17,8 +18,9 @@ c  OUTPUT:  artificial SDSS catalogue
       INTEGER,DIMENSION(:),allocatable :: thing_id,plate,mjd,
      &                                   fiber,z_flag,npix
       REAL*8, DIMENSION(:),allocatable :: ra,dec,zqso,alpha,alpha_fit,
-     &                                   begin_wave,rmag
-      REAL*8,DIMENSION(:),alloacatable :: ovi,civ
+     &                                   begin_wave,rmag,ovi,civ
+c      REAL*8,DIMENSION(:,:),alloacatable :: psfmag
+      REAL*8, DIMENSION(82701,5) :: psfmag
       REAL*8,DIMENSION(262144) :: lambda,flux, da4
       REAL*8,DIMENSION(262144) :: flerr, nnflux,flux_nc
       REAL*8, DIMENSION(:),ALLOCATABLE :: xs,ys,CDDF,H
@@ -65,11 +67,14 @@ c  OUTPUT:  artificial SDSS catalogue
          allocate(dec(nrows));       allocate(zqso(nrows))
          allocate(alpha(nrows));     allocate(alpha_fit(nrows))
          allocate(begin_wave(nrows));allocate(rmag(nrows))
+c         allocate(psfmag(nrows,5)
          call SDSS_readfits(home,infile,nrows,SDSS_name,RA,DEC,thing_id,
      &         plate,mjd,fiber,zqso,z_flag,alpha,alpha_fit,npix,
-     &         begin_wave,rmag)
+     &         begin_wave,psfmag,rmag)
          nc=1e12
          nuplim=1e22
+         inoise=1
+         sigblur=3.0
          dw=0.0001 !pixel resolution of SDSS
 c      else if (option.eq.2) then        
 c         infile='sin.fits'
@@ -89,12 +94,15 @@ c     &         ra,dec,zqso,alpha,rmag,sigblur,s2n)
 ! ---------------------------------------------------------------------
 ! GENERATE ARTIFICIAL SPECTRA
 ! ---------------------------------------------------------------------
-      do i=25,25
+      do i=1,1
          wstart=begin_wave(i)
          wend=begin_wave(i)+npix(i)*dw 
          zstart=(10**begin_wave(i)/1215.67)-1.
          zend=zqso(i)
-         write (descriptor,'(I8.8)') i
+         write (splate,'(I4.4)') plate(i)
+         write (smjd,'(I5.5)') mjd(i)
+         write (sfiber,'(I4.4)') fiber(i)         
+         descriptor = splate//'-'//smjd//'-'//sfiber
          write (6,*)'=================================================='
          write (6,*)'               Spectrum no. ',descriptor
          write (6,*)'=================================================='
@@ -107,12 +115,17 @@ c     &         ra,dec,zqso,alpha,rmag,sigblur,s2n)
          call cloudy(home,descriptor,mask,nl,s)
          allocate(ovi(s)); allocate(civ(s))
 c         call read_cloudy_output()
-c         call qsosim9(home,zqso(i),alpha(i),rmag(i),wstart,wend,dw,nc,
-c     +         nuplim,sigblur(i),s2n(i),inoise,dvavoid,npts,lambda,flux,
-c     +         flerr,nnflux,flux_nc,npoints,nl,ni,nhi4,z4)
-         outfile='spec-'//descriptor//'.fits'
-c         call writefits(outfile,ra(i),dec(i),zqso(i),alpha(i),rmag(i),
-c     &                     npts,lambda,flux,flerr,nnflux,flux_nc)
+         call qsosim9(zqso(i),alpha_fit(i),rmag(i),wstart,wend,dw,nuplim
+     +         ,sigblur,inoise,npts,lambda,flux,
+     +         flerr,nnflux,flux_nc,npoints,nl,ni,nhi4,z4)
+         outfile='mockspec-'//descriptor//'.fits'
+         do j=1,5
+            mags(j)=psfmag(i,j)
+         end do
+         call writefits(outfile,ra(i),dec(i),zqso(i),z_flag(i),alpha(i),
+     &                  alpha_fit(i),rmag(i),SDSS_name(i),thing_id(i),
+     &                  plate(i),mjd(i),fiber(i),npix(i),wstart,
+     &                  mags,npts,lambda,flux,flerr,nnflux,flux_nc)
          write (*,*)'--------------------------------------------------'
          deallocate(nhi4)
          deallocate(z4)

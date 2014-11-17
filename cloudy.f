@@ -1,7 +1,7 @@
       subroutine cloudy(home,descriptor,mask,nl,s)
 
       integer i,s
-      character :: descriptor*8,num*4,ns*4
+      character :: descriptor*16,num*4,ns*4
       character*120 :: path,home,folder,filename
       character command*200
       integer, dimension(nl) :: mask

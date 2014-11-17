@@ -3,8 +3,8 @@ c QSOSIM9. Prog. to make synthetic QSO spectrum - John Webb, UNSW, Dec 2013
 c Uses VPFIT Voigt profile programs
 c Compile using Makefile
 c ----------------------------------------------------------------------------
-	SUBROUTINE QSOSIM9(home,zqso,alpha,rmag,wstart,wend,dw,nc,nuplim,
-     :          sigblur,s2n,inoise,dvavoid,npts,loglam,flux,
+	SUBROUTINE QSOSIM9(zqso,alpha,rmag,wstart,wend,dw,nuplim,
+     :          sigblur,inoise,npts,loglam,flux,
      :          flerr,nnflux,flux_nc,npoints,numlin,ni,nhi4,z4)
 	  real*4 wda(262144),danoabs(262144),tau(262144)
 	  real*4 da4(262144),da4conv(262144),wda4sp(262144)
@@ -130,19 +130,14 @@ c Next section makes absorption lines
 c g is from dn=A(1+z)^g dz, beta is from dn propto N^{-beta} dN.
 c a13p75 is the value of A for lines above logN=13.75.
 c gp1= gamma+1, mbp1=1-beta, nc is N cutoff, n is total no. of lines
-	a13p75=10.0
-	zstart=wstart/1215.67-1.
-	zend=zqso
-	z1p1=(wstart/1215.67)
-	z2p1=zqsop1	
 c Initialise random numbers, create a dummy array
 	idum=time()
 	do i=1,npoints
 	   dummy(i)=dble(i)
 	end do
+	   
 c Call Voigt profile generator numlin times, once for each abs system
 	do i=1,numlin
-	     
 c Random selection of NHI and redshifts was done in 'assign', reading the arrays
 	   nhi=10**nhi4(i)
 	   z=z4(i)
@@ -158,6 +153,7 @@ c      zright=zlls(j) + dvavoid*(1.0+zlls(j))/vlight
 c      zleft=zlls(j) - dvavoid*(1.0+zlls(j))/vlight
 c      if(z.ge.zleft.and.z.le.zright)iflag=1
 c      end do
+
 	   if(nhi.ge.nuplim)iflag=1
 	   if(iflag.eq.0)call spvoigt(da,wda4sp,npts,nhi,z,b,'H ','I   ')
 
@@ -186,7 +182,7 @@ c Make real*4 array for pgplot and a real*8 no-noise convolved spectrum
 
 c Make error array
 	do i=1,npts
-	   da_err(i) = da(i)/dble(s2n) + 0.2*dble(danoabs(i))/dble(s2n)
+c	   da_err(i) = da(i)/dble(s2n) + 0.2*dble(danoabs(i))/dble(s2n)
 	   da_err4(i) = real(da_err(i))
 	end do
 !-----------------------------------------------------------------------    
@@ -197,12 +193,12 @@ c inoise=0 is constant.  inoise=1 gets worse towards blue. See qsosim9.pdf.
 	npix=npts*3
 	t=60*60
 	area=pi*250**2
-	if(inoise.eq.0)then
-	   do i=1,npts
-	      da_err4mod(i) = gasdev3(idum)*da_err4(i)
-	      da4smno(i) = da8conv(i) + da_err4mod(i)
-	   end do
-	end if
+c	if(inoise.eq.0)then
+c	   do i=1,npts
+c	      da_err4mod(i) = gasdev3(idum)*da_err4(i)
+c	      da4smno(i) = da8conv(i) + da_err4mod(i)
+c	   end do
+c	end if
 	if(inoise.eq.1)then
 	   do i=1,npts
 	      pix(i)=(1./vlight)*69*10**wda(i) !pixel size [A], Bolton et al. 2012. : BOSS 69 km/s
@@ -231,7 +227,7 @@ c	 write (6,*) 10**wda(i), qe(i)
 	   c=gasdev3(idum)
 	   sky(i)=abs(gasdev3(idum)*10**5.8) !e-  1e6
 !use different values for red and blue arms of the spectrographs
-	   if((wda(i).ge.alog10(3650.)).and.(alog10(wda(i)).lt.6050.))then
+	   if((wda(i).ge.alog10(3600.)).and.(alog10(wda(i)).lt.6050.))then
 	      dark=(0.525+0.022*gasdev3(idum))/900 !e-/pixel/s
 	      gain=1.02+0.01*gasdev3(idum) !e-/ADU
 	   else

@@ -1,7 +1,7 @@
 c-------------------------------------------------------------------------------
       SUBROUTINE SDSS_readfits(home,infile,nrows,SDSS_name,RA,DEC,
      &         thing_id,plate,mjd,fiber,zqso,z_flag,alpha,alpha_fit,
-     &         npix,begin_wave,rmag)
+     &         npix,begin_wave,psfmag,rmag)
 c     PURPOSE: read fits file containing data for qsosim9
 c     INPUT: filename  name of the fits file
 c     OUTPUT: 
@@ -32,6 +32,7 @@ c Declare variables
      &                                   fiber,z_flag,npix
       REAL*8, DIMENSION(nrows) :: ra,dec,zqso,alpha,alpha_fit,
      &                                   begin_wave,rmag
+      REAL*8, DIMENSION(nrows,5) :: psfmag
       character :: infile*20,ttype(20)*10!, nhills,blls,zlls
       logical :: anynull
       character :: errtext*30,card*50,comment*30,home*120,nulls
@@ -115,6 +116,9 @@ c      write (*,300)'RA','DEC','Z','alpha'
          lpixels=(/5,irow/)
          call FTGSVD(unit,14,naxis,naxes,fpixels,lpixels,incs,nulle,
      &       array,anynull,status)
+         do j=1,5
+            psfmag(irow,j)=array(j)
+         end do
          rmag(irow) = array(3)
 c         write (*,200)irow,ra(irow),dec(irow),zqso(irow),alpha_fit(irow)
 c     & ,rmag(irow),npix(irow)
