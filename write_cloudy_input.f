@@ -1,12 +1,14 @@
-      subroutine write_cloudy_input(home,descriptor,z,nl,nhi4,mask,s)
+      subroutine write_cloudy_input(home,descriptor,z,nl,nhi4,s)
 ! ----------------------------------------------------------------------
       implicit none
-      integer :: i,j,nl,s,t
+      integer :: i,j,t
+      integer ::s
+      integer, intent(in) :: nl
       character :: filename*90, line*100, cwd*30, home*120, folder*90
-      character ::descriptor*16,num*4,makedirectory*100,lognhi*10,zed*10
-      real*8,dimension(nl) :: nhi4
+      character ::descriptor*15,num*4,makedirectory*100,lognhi*10,zed*10
+      real*8,dimension(nl),intent(inout) :: nhi4
       integer,dimension(nl) :: mask
-      real*8 :: z
+      real*8,intent(in) :: z
       logical ex
 ! ----------------------------------------------------------------------
 ! Create folder with object name and create input files for the absorption systems
@@ -51,8 +53,8 @@ c            write (6,*) i, nhi4(i), '_/'
              line = 'print line faint -1'; write(17,100) line
 c             line = 'save performance "igm_lalpha.per"'
 c                      write (17,100) line
-c             line = 'save overview last "igm_lalpha.ovr"'
-c                      write(17,100)line
+             line = 'save overview last "system_'//num//'.ovr"'
+                      write(17,100)line
 c             line = 'save dr last "igm_lalpha.dr"';write (17,100) line
              line = 'save results last "system_'//num//'.rlt"'
                       write(17,100)line
@@ -64,4 +66,5 @@ c            t=t+1
       end do
       write (6,'(5x,i4,3x,a20)') s,'clouds in the sky!'
       call chdir(home)
+      return
       end subroutine

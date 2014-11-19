@@ -1,5 +1,5 @@
 c-------------------------------------------------------------------------------
-      SUBROUTINE read_nrows(home,infile,nrows)!,SDSS_name,RA,DEC,
+      SUBROUTINE read_nrows(home,infile,nrs)!,SDSS_name,RA,DEC,
 !     &         thing_id,plate,mjd,fiber,zqso,z_flag,alpha,alpha_fit,
 !     &         npix,begin_wave,rmag)
 c     PURPOSE: read fits file containing data for qsosim9
@@ -22,8 +22,9 @@ c------------------------------------------------------------------------------
 c GENERAL DECLARATIONS
 c Declare variables
       INTEGER :: status,unit,readwrite,blocksize,hdutype,ntable,inoise
-      INTEGER :: nrows,naxis,naxes(2),fpixels(2),lpixels(2),incs(2)
+      INTEGER :: naxis,naxes(2)
       INTEGER :: felem,nelems,nullj,nfound,irow,colnum
+      INTEGER :: nrs
       REAL :: nulle
       character :: infile*20,ttype(20)*10!, nhills,blls,zlls
       logical :: anynull
@@ -31,7 +32,7 @@ c Declare variables
 c------------------------------------------------------------------------------
 c Define parameters
       status=0
-      unit=3
+      call ftgiou(unit,status)
       readwrite=0
 c------------------------------------------------------------------------------
 c Open fits file to read
@@ -46,15 +47,16 @@ c Read contents of 'NoName' (ntable=2) binary table
 c Read data from columns
       ntable=2
       call ftmahd(unit,ntable,hdutype,status)
-      call FTGKYJ(unit,'NAXIS2',nrows,comment,status)
+      call FTGKYJ(unit,'NAXIS2',nrs,comment,status)
  100  format(2x,a10,d9.3,a4)
  125  format(2x,a10,f9.3,a4)
  150  format(2x,a10,i3)
-      write (6,*) 'Number of objects :',nrows 
+      write (6,*) 'Number of objects :',nrs
 
 cc------------------------------------------------------------------------------
 cc Close fits file
       call ftclos(unit,status)
+      call ftfiou(unit,status)
       if (status.eq.0)then 
          print *,status,' File closed'
       else 

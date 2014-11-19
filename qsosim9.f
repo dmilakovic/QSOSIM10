@@ -3,38 +3,40 @@ c QSOSIM9. Prog. to make synthetic QSO spectrum - John Webb, UNSW, Dec 2013
 c Uses VPFIT Voigt profile programs
 c Compile using Makefile
 c ----------------------------------------------------------------------------
-	SUBROUTINE QSOSIM9(zqso,alpha,rmag,wstart,wend,dw,nuplim,
-     :          sigblur,inoise,npts,loglam,flux,
-     :          flerr,nnflux,flux_nc,npoints,numlin,ni,nhi4,z4)
+	SUBROUTINE QSOSIM9(home,zqso,alpha,r_mag,wstart,wend,dw,nuplim,
+     :          sigblur,inoise,npts,loglam,flux,flerr,nnflux,flux_nc,
+     :          npoints,nl,ni,nhi4,z4)
 	  real*4 wda(262144),danoabs(262144),tau(262144)
 	  real*4 da4(262144),da4conv(262144),wda4sp(262144)
 	  real*8 da_err4(262144),da4smno(262144)
 	  real*8,dimension(262144):: da,da8,da8conv,da_err,da_err4mod
-	  real*4 wems(62),relstr(62),sigma(62)
-	  character*10 ion(62),med
+	  real*4 wems(63),relstr(63),sigma(63)
+	  character*10 ion(62), med
 	  character*20 cMed
 	  CHARACTER :: home*120
-	  real*8 nhi,b,z,z1p1,z2p1,sig_median
+	  real*8 nhi,b,z,z1p1,z2p1,select,median
 	  real*4 w,ff,sum,zstart,zend
 	  real*4 a12p5,rn,a13p75,a13p1,mbp1,zqsop1,pi
 	  real*4 c,d,p,q,r,s,vlight,zleft,zright
 	  real*8 lognhi, delta,mdelta
 	  real*4 nhills(20),blls(20),zlls(20)
+	  real*8, intent(in)::zqso,alpha,r_mag,wstart,wend,dw,nuplim
+	  real*8, intent(in)::sigblur
+	  integer, intent(in) :: inoise,npts,nl
+	  real*8, dimension(nl), intent(in)::nhi4,z4
 	  real*8, dimension(262144) :: en,ns,noise,signal,snr,qe,sky,pix
-	  real*8 :: zqso,alpha,rmag,wstart,wend,dw
-	  real*8 :: s2n,dvavoid,nc,nuplim,sigblur
-	  real*8, dimension(262144) :: loglam,lambda,flux,aux,flux_nc
-	  real*8, intent(out) :: flerr(262144), nnflux(262144)
+	  real*8, dimension(262144) :: lambda,aux
+	  real*8, dimension(262144) :: loglam,flux,flux_nc
+	  real*8, dimension(262144) :: flerr, nnflux
           real*8 alm, fik,asm,ran3
-	  real*8 npix,dark,gain,ron2,sig,t,pixsize,area
-	  real*4 n1,n2,n3,median
+	  real*8 dark,gain,ron2,sig,t,pixsize,area
+	  real*4 n1,n2,n3
 	  real*4, dimension(26) :: throughx,throughy
 	  real*4, dimension(3) :: bins
 	  real*8, dimension(3) :: gamma
-	  integer,dimension(3) :: ni
+	  integer,dimension(3),intent(in) :: ni
 	  real*8, dimension(npoints) :: dummy, dummyy
-	  real*8,dimension(numlin) :: nhi4,z4
-	  integer npts,npoints,idum,numlls,iflag,inoise,index,numlin,mid
+	  integer npoints,idum,numlls,iflag,index,mid
 
 	  data pi/3.14159265/
 	  data vlight/299792.458/
@@ -58,22 +60,22 @@ c     +              0.041,0.0034,0.0076,0.0047,0.06,0.022,0.34,
 c     +              0.063,0.0073,0.0095,0.0052,0.01,0.0078,0.036,
 c     +              0.013,0.028,0.13,0.22,0.0093,0.034,0.4/
 
-	call chdir(home)
 
 c Max no. of pixels, hard-coded in array declarations
       write (6,*) '--------------------------------------------------'
       write (6,*) '             Let there be spectrum                '
       write (6,*) '--------------------------------------------------'
+      call chdir(home)
       nptsmax=262144
       nemlines=63
-      open(unit=12,file='emission.dat',err=101)
+      open(unit=13,file='emission.dat',err=101)
 	goto 102
  101	write(6,*)' Error - no emission.dat, or format wrong'
 	stop
  102	do i=1,nemlines
-	   read(12,*) wems(i),relstr(i),sigma(i),ion(i)
+	   read(13,*) wems(i),relstr(i),sigma(i),ion(i)
 	end do
-      close(unit=12)
+      close(unit=13)
 c alpha is QSO spectral index, rmag is the SDSS r magnitude
 c c is correction to express flux in units erg s-1 cm-2 A-1
 c magnitude expression modified from Fukugita 1996.: eq. (2), table 2a.
@@ -83,11 +85,10 @@ c nc is the column density cut-off (REAL, NOT log10)
 	c = 3631*1e-23*((vlight*1e3)/(0.6182e-6)**2)*1e-10 ! 10e-23 erg s-1 cm-2 Hz-1 --> erg s-1 cm-2 A-1
 	c = alog10(c)/0.4
 c	write (6,*) c
-	f6182=10**(-(rmag-c)/2.5)
+	f6182=10**(-(r_mag-c)/2.5)
 c	write (6,*) f6182
 	const=f6182/(1.0/6182.0**(2+alpha))*1e17 !we want in units 1e-17 erg s-1 cm-2 A-1
-	sum=0.0
-	npts=(wend-wstart)/dw
+c	sum=0.0
 	if(npts.gt.nptsmax)then
 	   write(6,*)' Max. no. of pixels = ',nptsmax
 	   stop
@@ -132,12 +133,9 @@ c a13p75 is the value of A for lines above logN=13.75.
 c gp1= gamma+1, mbp1=1-beta, nc is N cutoff, n is total no. of lines
 c Initialise random numbers, create a dummy array
 	idum=time()
-	do i=1,npoints
-	   dummy(i)=dble(i)
-	end do
 	   
-c Call Voigt profile generator numlin times, once for each abs system
-	do i=1,numlin
+c Call Voigt profile generator nl times, once for each abs system
+	do i=1,nl
 c Random selection of NHI and redshifts was done in 'assign', reading the arrays
 	   nhi=10**nhi4(i)
 	   z=z4(i)
@@ -148,21 +146,10 @@ c Put the forest lines in, but only if:
 c 1. it is not if within the specified avoidance zone of each LLS, and
 c 2. if its N(HI) is less than the specified upper limit for forest lines
 	   iflag=0
-c      do j=1,numlls
-c      zright=zlls(j) + dvavoid*(1.0+zlls(j))/vlight
-c      zleft=zlls(j) - dvavoid*(1.0+zlls(j))/vlight
-c      if(z.ge.zleft.and.z.le.zright)iflag=1
-c      end do
-
 	   if(nhi.ge.nuplim)iflag=1
 	   if(iflag.eq.0)call spvoigt(da,wda4sp,npts,nhi,z,b,'H ','I   ')
 
 	end do
-c End of loop for forest.  Now put the LLS's in
-c      do j=1,numlls
-c        call spvoigt (da,wda,npts,dble(nhills(j)),dble(zlls(j)),
-c     :                dble(blls(j)),'H ','I   ')
-c      end do
 
 c Keep unconvolved real*4 and real*8 spectrum
 	do i=1,npts
@@ -171,34 +158,34 @@ c Keep unconvolved real*4 and real*8 spectrum
 	end do
 Convolution with assumed Gaussian instrumental profile
 c (add variable resolution!)
-	write(6,*) "Do you need glasses?..."
+	write(6,*) "Blurring..."
 	call blur(da, npts, sigblur)
-	write (6,*) "It's all a big blur to me..."
+	write (6,*) "Blurring complete"
 c Make real*4 array for pgplot and a real*8 no-noise convolved spectrum
 	do i=1,npts
 	   da4conv(i)=real(da(i))
 	   da8conv(i)=da(i)
 	end do
-
 c Make error array
 	do i=1,npts
-c	   da_err(i) = da(i)/dble(s2n) + 0.2*dble(danoabs(i))/dble(s2n)
+	   da_err(i) = da(i)/dble(s2n) + 0.2*dble(danoabs(i))/dble(s2n)
 	   da_err4(i) = real(da_err(i))
 	end do
 !-----------------------------------------------------------------------    
 c Add noise to real*4 convolved spectrum. 2 noise models.
 c inoise=0 is constant.  inoise=1 gets worse towards blue. See qsosim9.pdf.
 !-----------------------------------------------------------------------
+	write (6,*) 'adding noise'
 	s=0
-	npix=npts*3
+	numpix=npts*3
 	t=60*60
 	area=pi*250**2
-c	if(inoise.eq.0)then
-c	   do i=1,npts
-c	      da_err4mod(i) = gasdev3(idum)*da_err4(i)
-c	      da4smno(i) = da8conv(i) + da_err4mod(i)
-c	   end do
-c	end if
+	if(inoise.eq.0)then
+	   do i=1,npts
+	      da_err4mod(i) = gasdev3(idum)*da_err4(i)
+	      da4smno(i) = da8conv(i) + da_err4mod(i)
+	   end do
+	end if
 	if(inoise.eq.1)then
 	   do i=1,npts
 	      pix(i)=(1./vlight)*69*10**wda(i) !pixel size [A], Bolton et al. 2012. : BOSS 69 km/s
@@ -212,7 +199,6 @@ c	end if
 c	 write (6,*) 10**wda(i), qe(i)
 	      signal(i)=da8conv(i)*t*pix(i)*area/(en(i)*qe(i)) !e-
 	   end do
-	   write (6,*) s
 	data throughx/3650.0,3850.0,4120.0,4400.0,4900.0,5230.0,5500.0,
      +                6000.0,6150.0,6500.0,7000.0,7130.0,7500.0,7550.0,
      +                7650.0,7900.0,8200.0,8500.0,8950.0,9050.0,9000.0,
@@ -237,18 +223,19 @@ c	 write (6,*) 10**wda(i), qe(i)
 	 !square of the read-out noise (e-) (per read-out!, interval = 55sec)
 	   ron2=(2.25+0.2*gasdev3(idum))**2
 	 ! ns - noise in e-
-	   ns(i)=c*sqrt(signal(i)+(sky(i)+dark*t)*npix+ron2*(t/55))
+	   ns(i)=c*sqrt(signal(i)+(sky(i)+dark*t)*numpix+ron2*(t/55))
 	 !noise in erg s-1 cm-1 A-1
 	   noise(i)=ns(i)*en(i)/qe(i)/(t*pix(i)*area)
 	   da4smno(i) = da8conv(i)+noise(i)
 	   snr(i)=abs(da8conv(i)/noise(i))
-c	write(6,'(3d12.3)') da4smno(i),noise(i),snr(i)
+c	write(6,'(3f12.3)') da4smno(i),noise(i),snr(i)
 	   s=s+snr(i)
 	end do
 	end if
+	write (6,*) 'noise added'
  !-----------------------------------------------------------------------    
 c Plot spectrum
-      call PGBEGIN (0,'/null',1,1)
+c     call PGBEGIN (0,'/null',1,1)
       xmin=real(wstart)
       xmax=real(wend)
       ymin=0.0
@@ -266,7 +253,7 @@ c Plot spectrum
 	ypos1=ymin+(ymax-ymin)*0.90
 	ypos2=ymin+(ymax-ymin)*0.82
 c Data to be returned into main program
-	
+	write (6,*) 'writing data to be returned into main program'
  100	format(f12.5,2x,f12.5,2x,f12.5,2x,f12.5)
       do i=1,npts
 	 lambda(i)=10**wda(i)
@@ -275,28 +262,26 @@ c Data to be returned into main program
 	 flerr(i)=da_err4(i)
 	 flux_nc(i)=da8(i)     !uncovolved flux
 	 nnflux(i)=da8conv(i)  !convolved flux
-c         write(*,*)wda(i),flux(i),noise(i),nnflux(i)
       end do
 
-
-      call PGENV (xmin,xmax,ymin,ymax,0,1)
-      call PGLABEL ('Wavelength','f(lambda)','Log wavelengths')
-      call pgline(npts,wda,real(da4smno))
-	do i=1,nemlines
-	   call pgptxt(alog10(wems(i)),ypost,90.0,0.0,ion(i))
-	   call pgmove(alog10(wems(i)),ypos1)
-	   call pgdraw(alog10(wems(i)),ypos2)
-	end do
-      call pgslw(1)
-      call pgsci(5)
-      call pgline(npts,real(loglam),real(da8conv))
+c      call PGENV (xmin,xmax,ymin,ymax,0,1)
+c      call PGLABEL ('Wavelength','f(lambda)','Log wavelengths')
+c      call pgline(npts,wda,real(da4smno))
+c	do i=1,nemlines
+c	   call pgptxt(alog10(wems(i)),ypost,90.0,0.0,ion(i))
+c	   call pgmove(alog10(wems(i)),ypos1)
+c	   call pgdraw(alog10(wems(i)),ypos2)
+c	end do
+c      call pgslw(1)
+c      call pgsci(5)
+c      call pgline(npts,real(loglam),real(da8conv))
 c      call pgsls(2)
 c      call pgsci(2)
 c      call pgline(npts,real(loglam),real(noise))
 c      call pgsls(1)
 c      call pgsci(3)
 c      call pgline(npts,real(loglam),da_err4)
- !-----------------------------------------------------------------------    	
+ !----------------------------------------------------------------------- 
 	ymin=0.0
 	ymax=0.0
 	do i=1,npts
@@ -320,23 +305,25 @@ c	call PGLABEL('log NHI','No of lines','Choice of NHI')
 c	call PGBIN(3,bins,real(ni),.FALSE.)
 c	call PGHIST(npts,real(snr),0.0,200.0,200,0)
 c	call PGLABEL('S/N','#','Signal-to-noise histogram')
+	write (6,*) 'final calculations'
 	if (mod(npts,2).eq.0) then
 	mid=npts/2
 	else 
 	   mid=nint(npts/2+0.5)
 	end if
-	median=select(mid,npts,real(snr))
-	write(med,'(f7.3)') median
-	cMed='S/N median = '//med
+	write (6,*) mid
+	median = 3.0
+	median=select(mid,npts,snr)
+	write (6,*) median
 	write (6,*) 'npts = ',npts
 	write (6,*) 'median = ',median
 	write (6,*) 'mean = ', s/npts
-	write (6,*) 'r_mag = ', rmag
-c	call pgtext(60.0,400.0,cMed)
-      call pgend
+	write (6,*) 'r_mag = ', r_mag
+	write (6,*) 'returning'
+c      call pgend
 !-----------------------------------------------------------------------    
       return
-      end
+      end subroutine qsosim9
 
 c Numercial Recipes subroutine
 !======================================================================
@@ -471,11 +458,12 @@ c *** do blurring
 !======================================================================
 	FUNCTION select(k,n,arr)
 	INTEGER k,n
-	REAL select,arr(n)
+	REAL*8 select
+	REAL*8,DIMENSION(n) :: arr
 	!Returns the kth smallest value in the array arr(1:n). The input array will be rearranged to have this value in location arr(k), with all smaller elements moved to arr(1:k-1) (in arbitrary order) and all larger elements in arr[k+1..n] (also in arbitrary order).
 !======================================================================
 	INTEGER i,ir,j,l,mid
-	REAL a,temp
+	REAL*8 a,temp
 	l=1
 	ir=n
  1	if(ir-l.le.1)then 

@@ -1,6 +1,6 @@
 ! -------------------------------------------------------------------
       subroutine power_laws(npoints,zstart,zqso,xs,ys,CDDF,
-     +                      bigA,gamma,corr,nl,ni)
+     +                      bigA,gamma,nl,ni)
 ! -------------------------------------------------------------------
 C PURPOSE: prepare constants to be used in calculating the number of 
 C          lines and power laws from Kim et al 2013
@@ -136,8 +136,9 @@ c      write (6,*) 'A (numerical) =',corr*bigA(1)/(gamma(1)+1.)
 c      write (6,*) 'gamma = ',gamma(1)
 c      write (6,*) 'z1 =',z1
 c      write (6,*) 'z2 =',z2
-      write (6,*) 'n [12.75->14.00] (numerical) =',nint(n(1))
-      write (6,*) 'n [14.00->17.00] (numerical) =',nint(n(2))
-      write (6,*) 'n [17.00->22.00] (numerical) =',nint(n(3))
-      write (6,*) 'Number of lines =', nl 
+      write (6,*) 'n [12.75->14.00] (predicted) =',nint(n(1))
+      write (6,*) 'n [14.00->17.00] (predicted) =',nint(n(2))
+      write (6,*) 'n [17.00->22.00] (predicted) =',nint(n(3))
+      write (6,*) 'Total number of lines =', nl 
+      return
       end subroutine power_laws

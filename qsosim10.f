@@ -4,30 +4,33 @@ c  PURPOSE: call other subroutines to generate artificial spectra!
 c  OUTPUT:  artificial SDSS catalogue
 !======================================================================
       IMPLICIT NONE
-      CHARACTER :: infile*20, outfile*30, descriptor*16,command*20
-      CHARACTER :: home*120,name*18, splate*4,smjd*5,sfiber*4
-      INTEGER,PARAMETER :: npoints=1000
-      INTEGER :: i,j,inoise, numlin, npts, nl,s,option,nrows
-      INTEGER :: z_w,id,iplate,imjd,ifiber,ipix
+      CHARACTER :: infile*20, outfile*35, descriptor*15,command*20
+      CHARACTER :: home*120,gohome*120,mockspec_folder*120,name*18
+      INTEGER,PARAMETER :: npoints=10000,nrows=100000
+      integer, parameter :: RegInt_K = selected_int_kind (12)
+      integer (kind=RegInt_K) :: i
+      INTEGER :: nr,j,inoise, numlin, npts, nl,s,option
+      INTEGER :: z_w,id,iplate,imjd,ifiber,ipix,status
       REAL*8 :: wstart,wend,dw,mags(5)
       REAL*8 :: nc,nuplim,sigblur
       REAL*8 :: corr, zstart,zend
       REAL*8,DIMENSION(3) :: bigA,gamma,n
       INTEGER,DIMENSION(3) :: ni
-      CHARACTER,DIMENSION(:),allocatable :: SDSS_name*18
-      INTEGER,DIMENSION(:),allocatable :: thing_id,plate,mjd,
+      CHARACTER,DIMENSION(nrows) :: SDSS_name*18
+      INTEGER,DIMENSION(nrows) :: thing_id,plate,mjd,
      &                                   fiber,z_flag,npix
-      REAL*8, DIMENSION(:),allocatable :: ra,dec,zqso,alpha,alpha_fit,
-     &                                   begin_wave,rmag,ovi,civ
-c      REAL*8,DIMENSION(:,:),alloacatable :: psfmag
-      REAL*8, DIMENSION(82701,5) :: psfmag
-      REAL*8,DIMENSION(262144) :: lambda,flux, da4
-      REAL*8,DIMENSION(262144) :: flerr, nnflux,flux_nc
-      REAL*8, DIMENSION(:),ALLOCATABLE :: xs,ys,CDDF,H
-      REAL*8,DIMENSION(:),allocatable :: nhi4,z4
+      REAL*8, DIMENSION(nrows) :: ra,dec,zqso,alpha,alpha_fit,
+     &                                   begin_wave,rmag
+      REAL*8,DIMENSION(nrows,5) :: psfmag
+      REAL*8,DIMENSION(262144) :: loglam,flux
+      REAL*4,DIMENSION(262144) :: pg_loglam, pg_flux
+      REAL*8,DIMENSION(262144) :: noise, nnflux,flux_nc
+      REAL*8, DIMENSION(npoints) :: xs,ys,CDDF,H
+      REAL*8,DIMENSION(4000) :: nhi4,z4
       REAL*8,DIMENSION(:),allocatable :: nciv, novi
-      INTEGER,DIMENSION(:),allocatable :: mask
-      EXTERNAL :: qsosim9, spline, readfits, writefits, power_laws
+      EXTERNAL :: read_nrows, SDSS_readfits, qsosim, spline, readfits, 
+     &            power_laws, writefits, assign, write_cloudy_input
+     &            cloudy
 !====================================================================== 
       home = '/Users/dm/Documents/GitHub/QSOSIM10'
 ! ---------------------------------------------------------------------
@@ -47,6 +50,8 @@ c      REAL*8,DIMENSION(:,:),alloacatable :: psfmag
 ! READ INPUT PARAMETERS
 ! ---------------------------------------------------------------------
       home = '/Users/dm/Documents/GitHub/QSOSIM10'
+      gohome = trim('cd '//home)
+      mockspec_folder = trim(home)//'/mockspectra'
       write (6,*)'=================================================='
       write (6,*)'                    QSOSIM 10                     '
       write (6,*)'=================================================='
@@ -55,22 +60,15 @@ c      REAL*8,DIMENSION(:,:),alloacatable :: psfmag
       write (6,50)'(2)','random (legacy)'
       write (6,*)'=================================================='
       write (6,'(1x,a13)',advance='no')'I choose... '
-      read (*,'(i1)') option
+c      read (*,'(i1)') option
+      option=1
       if (option.eq.1) then
          infile='DR10Q_r.fits'
-         call read_nrows(home,infile,nrows)
+         call read_nrows(home,infile,nr)
          write(6,*) nrows
-         allocate(SDSS_name(nrows)); allocate(thing_id(nrows));
-         allocate(plate(nrows));     allocate(mjd(nrows))
-         allocate(fiber(nrows));     allocate(z_flag(nrows))
-         allocate(npix(nrows));      allocate(ra(nrows))
-         allocate(dec(nrows));       allocate(zqso(nrows))
-         allocate(alpha(nrows));     allocate(alpha_fit(nrows))
-         allocate(begin_wave(nrows));allocate(rmag(nrows))
-c         allocate(psfmag(nrows,5)
-         call SDSS_readfits(home,infile,nrows,SDSS_name,RA,DEC,thing_id,
-     &         plate,mjd,fiber,zqso,z_flag,alpha,alpha_fit,npix,
-     &         begin_wave,psfmag,rmag)
+         call SDSS_readfits(home,infile,nrows,nr,SDSS_name,RA,DEC,
+     &         thing_id,plate,mjd,fiber,zqso,z_flag,alpha,alpha_fit,
+     &         npix,begin_wave,psfmag,rmag)
          nc=1e12
          nuplim=1e22
          inoise=1
@@ -87,72 +85,89 @@ c     &         ra,dec,zqso,alpha,rmag,sigblur,s2n)
 ! ---------------------------------------------------------------------
 ! GET THE SPLINE
 ! ---------------------------------------------------------------------
-      allocate(xs(npoints))
-      allocate(ys(npoints))
-      allocate(CDDF(npoints))
       call spline(npoints,nc,nuplim,xs,ys,CDDF)
 ! ---------------------------------------------------------------------
 ! GENERATE ARTIFICIAL SPECTRA
 ! ---------------------------------------------------------------------
       do i=1,1
-         wstart=begin_wave(i)
+         write (descriptor,"(i4.4,'-',i5.5,'-'i4.4)")
+     &                     plate(i),mjd(i),fiber(i)
+         write (6,*)'=================================================='
+         write (6,*)'            Spectrum no. ',descriptor
+         write (6,*)'=================================================='
+         write (6,*) i,'th iteration'
+         !**** QSO data
+         wstart=begin_wave(i) 
          wend=begin_wave(i)+npix(i)*dw 
          zstart=(10**begin_wave(i)/1215.67)-1.
          zend=zqso(i)
-         write (splate,'(I4.4)') plate(i)
-         write (smjd,'(I5.5)') mjd(i)
-         write (sfiber,'(I4.4)') fiber(i)         
-         descriptor = splate//'-'//smjd//'-'//sfiber
-         write (6,*)'=================================================='
-         write (6,*)'               Spectrum no. ',descriptor
-         write (6,*)'=================================================='
-
-         call power_laws(npoints,zstart,zqso(i),xs,ys,CDDF,
-     +                      bigA,gamma,corr,nl,ni)
-         allocate(nhi4(nl)); allocate(z4(nl)); allocate(mask(nl))
-         call assign(npoints,zstart,zqso(i),xs,CDDF,gamma,nl,ni,nhi4,z4)
-         call write_cloudy_input(home,descriptor,zqso(i),nl,nhi4,mask,s)
-         call cloudy(home,descriptor,mask,nl,s)
-         allocate(ovi(s)); allocate(civ(s))
-c         call read_cloudy_output()
-         call qsosim9(zqso(i),alpha_fit(i),rmag(i),wstart,wend,dw,nuplim
-     +         ,sigblur,inoise,npts,lambda,flux,
-     +         flerr,nnflux,flux_nc,npoints,nl,ni,nhi4,z4)
+         ipix=npix(i)         
+         !**** calculate the number of lines between zstart and zqso ****
+         call power_laws(npoints,zstart,zend,xs,ys,CDDF,
+     +                      bigA,gamma,nl,ni)
+         !**** assign zero values of nhi and z to lines ****
+         do j=1,2000
+            nhi4(j)=0.0
+            z4(j)=0.0
+         end do
+         call assign(npoints,zstart,zend,xs,CDDF,nl,ni,nhi4,z4)
+         !**** write files used by cloudy, call cloudy and read results ****
+         call write_cloudy_input(home,descriptor,zend,nl,nhi4,s)
+c         call cloudy(home,descriptor,nl,s)
+c         allocate(novi(s)); 
+c         allocate(nciv(s)); 
+c         call read_cloudy_output(home,descriptor,'H ','I   ',s,mask,
+c     &                          novi)
+         !**** generate artificial spectrum ****
+         call qsosim(zqso(i),alpha_fit(i),rmag(i),begin_wave(i),dw,
+     +         sigblur,npix(i),nl,nhi4,z4,loglam,flux,
+     +         noise,nnflux,flux_nc)
+         !**** write qsosim output + qso general data into a fits file ****
          outfile='mockspec-'//descriptor//'.fits'
          do j=1,5
             mags(j)=psfmag(i,j)
          end do
-         call writefits(outfile,ra(i),dec(i),zqso(i),z_flag(i),alpha(i),
-     &                  alpha_fit(i),rmag(i),SDSS_name(i),thing_id(i),
-     &                  plate(i),mjd(i),fiber(i),npix(i),wstart,
-     &                  mags,npts,lambda,flux,flerr,nnflux,flux_nc)
-         write (*,*)'--------------------------------------------------'
-         deallocate(nhi4)
-         deallocate(z4)
-         deallocate(mask)
+         call writefits(home,mockspec_folder,outfile,ra(i),dec(i),
+     +                  zqso(i),z_flag(i),alpha(i),alpha_fit(i),rmag(i),
+     +                  SDSS_name(i),thing_id(i),plate(i),mjd(i),
+     +                  fiber(i),npix(i),wstart,mags,loglam,flux,noise,
+     +                  nnflux,flux_nc)
+         write (6,*)'--------------------------------------------------'
+         do j=1,262144
+            pg_loglam(j)=real(loglam(j))
+            pg_flux(j)=real(flux(j))
+         end do
+         !**** make sure that there are no artefacts in the next iteration ****
+         do j=1,262144
+            loglam(j)=0.0
+            flux(j)=0.0
+            noise(j)=0.0
+            flux_nc(j)=0.0
+            nnflux(j)=0.0
+         end do
       end do
-      
+      write (6,*)'=================================================='
+      write (6,*)'               DATA SET COMPLETED!                '
+      write (6,*)'=================================================='
 ! ---------------------------------------------------------------------
 ! PLOT QSO SPECTRUM OF THE LAST SOURCE
 ! --------------------------------------------------------------------- 
-      call PGBEGIN (0,'/null',1,1)
-c      call PGSLW(1)
-      call PGENV (12.0,22.0,0.0,1.0,0,1)
-c      call PGLABEL ('lambda','flux','QSO spectrum')
-      call pgline(npoints,real(xs),real(CDDF))
-c      call pgsci(2)
-c      call pgline(npts,real(lambda),real(nnflux))
-c      call pgsci(1)
-c      call PGENV(11.5,22.5,2.00,2.1,0,1)
-c      call PGLABEL('log NHI','z','Random choice of NHI & redshift')
-c      call PGPT(nl,real(nhi4),real(z4),3)
+      call PGBEGIN (0,'/xserve',1,1)
+      call PGENV (3.55,4.02,0.0,20.0,0,1)
+      call PGLABEL('log NHI','z','Random selection of NHI-z')
+c      call pgpt(nl,real(nhi4),real(z4),2)
+      call pgline(ipix,pg_loglam,pg_flux)
       call PGEND
+c      write (6,*) 'nothing else here!'
 ! --------------------------------------------------------------------- 
 ! FREE ALLOCATED MEMORY
 ! --------------------------------------------------------------------- 
-      deallocate(xs)
-      deallocate(ys)
-      deallocate(CDDF)
+c      deallocate(xs);        deallocate(ys);       deallocate(CDDF)
+c      deallocate(SDSS_name); deallocate(thing_id); deallocate(plate)
+c      deallocate(mjd);       deallocate(fiber);    deallocate(z_flag)
+c      deallocate(npix);      deallocate(ra);       deallocate(dec)
+c      deallocate(zqso);      deallocate(alpha);    deallocate(alpha_fit)
+c      deallocate(begin_wave);deallocate(rmag);     deallocate(psfmag)
 !======================================================================
       END PROGRAM qsosim10
 !======================================================================

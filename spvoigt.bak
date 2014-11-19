@@ -58,7 +58,7 @@
       double precision fcollallzn
       double precision clvaldrop
 
-*      write(*,*)"in:   col, z, b", col, z, b
+*      write(*,'(a13,3d10.3)')"   col, z, b", col, z, b
 
 *     set column densities used to be linear
       indvar=0
@@ -92,6 +92,7 @@
 *	set up parameters
       nexpd=5
 *
+
       do i=1,npts
 *	    rfc 24.2.95: replace by unit continuum and multiply later,
 *	    so that can interpolate from continuous absorption to
@@ -144,29 +145,27 @@ c            write(*,*) "Line in channel no.",chand
 	    tauchan=1.0e25
 	    jstep=-1
 	    j=jmid
-*     
-            do while (tauchan.gt.1.0e-6.and.j.ge.1.and.j.le.npts)
-c               
+*
+            do while (tauchan.gt.1.0e-6.and.j.le.npts)
                if(jstep.eq.-1) then
-                  if(j.gt.2) then
+                  if(j.gt.1) then
                      j=j-1
                   else
                      tauchan=1.0e-7
-                     if(jmid.le.1) jmid=2!1
-c                     write (6,*) 'jstep,j,jmid',jstep,j,jmid,' goto 901'
+                     if(jmid.le.0) jmid=1
                      goto 901
                   end if
 	       else
-                  if(j.lt.npts-1) then
+                  if(j.lt.npts) then
                      j=j+1
                   else
                      tauchan=1.0e-7
-c                     write (6,*) 'jstep,j,jmid',jstep,j,jmid,' goto 901'
                      goto 901
                   end if
                end if
                stau=10.0
 *
+
 *               only want to be here if normal ion 
 *               line parameters
                wv=alm(k)*1.0d-8
@@ -186,37 +185,19 @@ c                     write (6,*) 'jstep,j,jmid',jstep,j,jmid,' goto 901'
                end if
            
 *               high and low wavelength points (interpolate linearly)
-               if (wav(j-1).ne.wav(j-1)) then
-                 write (6,*) 'wav(j-1) is NaN',wav(j-1)
-                 write (6,*) 'j,jmid',j,jmid
-                  stop
-               end if
                wlod=(dble(wav(j))+dble(wav(j-1)))/2.0 * 1.0d-8/zdp1
                whid=(dble(wav(j))+dble(wav(j+1)))/2.0 * 1.0d-8/zdp1
 *               sub-divide
                dxd=(whid-wlod)/dble(nexbin)
                sumtot=0.0
                stau=0.0
-c               write(*,*)"   col, z, b", col, z, b
-c               write (6,*) 'ww, wv, bl, a',ww,wv,bl
-c               write (6,*) 'v,a',wv*wv*(1.0d0/ww-1.0d0/wv)/bl,a
                do klv=1,nexbin
                   fluxcur=flx(j)
                   ww=wlod+(dble(klv)-0.5d0)*dxd
                   v=wv*wv*(1.0d0/ww-1.0d0/wv)/bl
-                  if (v.eq.v)then
-c                  write (6,*) 'v,a',wv*wv*(1.0d0/ww-1.0d0/wv)/bl,a
 *                   absorb...
 *                   this seems to be voigt profile...
                   subtau=real(cne*voigt( v, a ))
-                  else if (v.ne.v) then
-                    write (6,*) 'v is NaN!, jstep,nexbin =',jstep,nexbin
-        write (6,*)'j,jmid,wlod,klv,dxd',j,jmid,wlod,dble(klv),0.5d0*dxd
-        write (6,*) 'ww, wav(j+1),(j),(j-1)',ww,wav(j+1),wav(j),wav(j-1)
-                     stop
-                     subtau=0.0
-                  end if
-c      write (6,*) 'check5',subtau,cne,v,a
                   e = expf(-subtau)
                   if(e.gt.1e-30.and.fluxcur.gt.1e-30)then
                      if ( log10( e ) + log10( fluxcur ) 
@@ -239,7 +220,7 @@ c      write (6,*) 'check5',subtau,cne,v,a
                
                tauchan=stau
  901           continue
-               if(jstep.lt.0.and.(tauchan.lt.1.0e-6.or.j.le.2)) then
+               if(jstep.lt.0.and.(tauchan.lt.1.0e-6.or.j.le.1)) then
                   jstep=1
                   j=jmid-1
                   tauchan=1.0e25
@@ -247,8 +228,7 @@ c      write (6,*) 'check5',subtau,cne,v,a
 	    end do
          end if
       end do
-
-*     
+*
 *	rfc 24.2.95:
 *
       
@@ -262,7 +242,7 @@ c      write (6,*) 'check5',subtau,cne,v,a
 *	    (i.e. collsmin=1.0d15)
          if(wavlow.le.wtemp.and.dble(cold).gt.collsmin) then
             call vp_lycont(cold,flx,wav,npts,zdp1)
-*              if(verbose) write(6,*) 'vp_lycont exit OK'
+*              write(6,*) 'vp_lycont exit OK'
          end if
       end if
 *
@@ -271,6 +251,7 @@ c      write (6,*) 'check5',subtau,cne,v,a
 c         write(*,*) "flx, contin", flx(i), contin(i)
          contin(i)=contin(i)*dble(flx(i))
       end do
+     
 *     
       return
       end

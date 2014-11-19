@@ -1,49 +1,35 @@
 c-------------------------------------------------------------------------------
-      SUBROUTINE SDSS_readfits(home,infile,nrows,SDSS_name,RA,DEC,
+      SUBROUTINE SDSS_readfits(home,infile,nrows,nr,SDSS_name,RA,DEC,
      &         thing_id,plate,mjd,fiber,zqso,z_flag,alpha,alpha_fit,
      &         npix,begin_wave,psfmag,rmag)
 c     PURPOSE: read fits file containing data for qsosim9
-c     INPUT: filename  name of the fits file
-c     OUTPUT: 
-*            wstart    starting wavelength
-*            wend      ending wavelength
-*            dw        pixel size
-*            nc        N(HI) lower cut-off
-*            nuplim    N(HI) upper cut-off
-*            inoise    inoise parameter
-*            dvavoid   avoidance zone around each additional system in km/h
-*            ra        RA coordinates (array)
-*            dec       DEC coordinates (array)
-*            zqso      Z (array)
-*            alpha     spectral index (array)
-*            vmag      V magnitude (array)
-*            sigblur   spectral resolution (array)
+c     INPUT: infile  name of the fits file
 c------------------------------------------------------------------------------
 c GENERAL DECLARATIONS
 c Declare variables
       INTEGER :: status,unit,readwrite,blocksize,hdutype,ntable,inoise
-      INTEGER :: nrows,naxis,naxes(2),fpixels(2),lpixels(2),incs(2)
+      INTEGER :: nrows,nr,naxis,naxes(2),fpixels(2),lpixels(2),incs(2)
       INTEGER :: felem,nelems,nullj,nfound,irow,colnum
       REAL :: nulle
       REAL*8 :: wstart,wend,dw
       REAL*8 :: nc, nuplim,dvavoid,array(5)
-      CHARACTER,DIMENSION(nrows) :: SDSS_name*18
-      INTEGER,DIMENSION(nrows) :: thing_id,plate,mjd,
+      CHARACTER,DIMENSION(nrows),intent(out) :: SDSS_name*18
+      INTEGER,DIMENSION(nrows),intent(out) :: thing_id,plate,mjd,
      &                                   fiber,z_flag,npix
-      REAL*8, DIMENSION(nrows) :: ra,dec,zqso,alpha,alpha_fit,
+      REAL*8, DIMENSION(nrows),intent(out)::ra,dec,zqso,alpha,alpha_fit,
      &                                   begin_wave,rmag
-      REAL*8, DIMENSION(nrows,5) :: psfmag
+      REAL*8, DIMENSION(nrows,5),intent(out) :: psfmag
       character :: infile*20,ttype(20)*10!, nhills,blls,zlls
       logical :: anynull
       character :: errtext*30,card*50,comment*30,home*120,nulls
 c------------------------------------------------------------------------------
 c Define parameters
       status=0
-      unit=3
       readwrite=0
 c------------------------------------------------------------------------------
 c Open fits file to read
       call chdir(home)
+      call ftgiou(unit,status)
       call ftopen(unit,infile,readwrite,blocksize,status)
       call ftgerr(status,errtext)
       if (status.eq.0) then 
@@ -54,27 +40,13 @@ c Read contents of 'NoName' (ntable=2) binary table
 c Read data from columns
       ntable=2
       call ftmahd(unit,ntable,hdutype,status)
-      call FTGKYJ(unit,'NAXIS2',nrows,comment,status)
-c      call FTGKYD(unit,'wstart',wstart,comment,status)
-c      call FTGKYD(unit,'wend',wend,comment,status)
-c      call FTGKYD(unit,'dw',dw,comment,status)
-c      call FTGKYD(unit,'nc',nc,comment,status)
-c      call FTGKYD(unit,'nuplim',nuplim,comment,status)
-c      call FTGKYJ(unit,'inoise',inoise,comment,status)
-c      call FTGKYD(unit,'dvavoid',dvavoid,comment,status)
- 100  format(2x,a10,d9.3,a4)
- 125  format(2x,a10,f9.3,a4)
- 150  format(2x,a10,i3)
-c      write (6,*) 'Number of objects :',nrows 
-
+      if (status.eq.0)then 
+         print *,status,' File closed'
+      else 
+         call FTGERR(status, errtext)
+         print *,status,' ',errtext
+      end if
 c------------------------------------------------------------------------------
-c      if (status.eq.0)then 
-c         call FTGERR(status, errtext)
-c         print *,status, errtext
-c      else 
-c         call FTGERR(status, errtext)
-c         print *,status,' ',errtext
-c      end if
 c Read column data, one row at a time, and print them out
       felem=1
       nelems=1
@@ -82,10 +54,10 @@ c Read column data, one row at a time, and print them out
       nullj=0
       nulls=''
       naxis=1
-      naxes=(/5*nrows,1/) 
+      naxes=(/5*nr,1/) 
       incs=(/1,1/)
 c      write (*,300)'RA','DEC','Z','alpha'
-      do irow=1,nrows
+      do irow=1,nr
          call FTGCVS(unit,1,irow,felem,nelems,nulls,SDSS_name(irow),
      &        anynull,status)
          call FTGCVD(unit,2,irow,felem,nelems,nulle,ra(irow),
@@ -132,6 +104,7 @@ c         write (*,250) 'mags',array
 cc------------------------------------------------------------------------------
 cc Close fits file
       call ftclos(unit,status)
+      call ftfiou(unit,status)
       if (status.eq.0)then 
          print *,status,' File closed'
       else 
