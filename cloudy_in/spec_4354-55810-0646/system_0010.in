@@ -3,7 +3,7 @@ cmb z=2.328
 table hm05 z=2.328                                                    
 hden -2                                                               
 metals -1.5                                                           
-stop neutral column density 14.01                                     
+stop neutral column density 14.78                                     
 double                                                                
 iterate to convergence                                                
 print line faint -1                                                   

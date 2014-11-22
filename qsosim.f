@@ -1,6 +1,6 @@
 !=======================================================================
       subroutine qsosim(zqso,alpha,rmag,wstart,pw,
-     +         sigblur,npix,nl,nhi4,z4,s,novi4,loglam,flux,
+     +         sigblur,npix,nl,nhi4,z4,mask,novi4,loglam,flux,
      +         noise,nnflux,flux_nc,noabs)
 !=======================================================================
       !generate the artificial spectrum
@@ -20,9 +20,10 @@
      +                                 conv,snr
       real*8,dimension(npix)::loglam,flux,flux_nc,nnflux,noise,noabs
       real*8 :: nhi4(4000),z4(4000), throughx(26), throughy(26)
-      real*8,dimension(s) :: novi4
+      real*8,dimension(nl) :: novi4
       real*8 :: lognhi,nhi,novi,z,b,voigt
       real*8 :: wems(nems), relstr(nems), sigma(nems)
+      logical,dimension(nl)::mask
       character :: ion(nems)*2
       data pi/3.14159265/
       data vlight/299792.458/
@@ -88,11 +89,16 @@ c input H I absorption
          call spvoigt(flux,lambda,npix,nhi,z,b,'H ','I   ')
       end do
 c input O VI absorption
-      do i=1,s
-         novi = novi4(i)
-         z = z4(i)
-         b = 3*gasdev3(idum)+12
-         call spvoigt(flux,lambda,npix,novi,z,b,'O ','VI  ')
+      do j=1,nl
+            write (6,*) 'j,mask,nhi,novi',j,mask(j),nhi4(j),novi4(j)
+         end do
+      do i=1,nl
+         if (mask(i).eqv..true.) then
+            novi = novi4(i)
+            z = z4(i)
+            b = 3*gasdev3(idum)+12
+            call spvoigt(flux,lambda,npix,novi,z,b,'O ','VI  ')
+         end if
       end do
       write (6,*) 'Oxygen inputted'
 c save uncolvolved flux real*8

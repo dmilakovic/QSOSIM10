@@ -3,9 +3,9 @@ cmb z=2.328
 table hm05 z=2.328                                                    
 hden -2                                                               
 metals -1.5                                                           
-stop neutral column density 14.29                                     
+stop neutral column density 14.55                                     
 double                                                                
 iterate to convergence                                                
 print line faint -1                                                   
-save overview last "system_0002.ovr"                                  
-save results last "system_0002.rlt"                                   
+save overview last "system_0012.ovr"                                  
+save results last "system_0012.rlt"                                   

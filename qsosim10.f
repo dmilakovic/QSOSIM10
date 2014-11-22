@@ -123,12 +123,9 @@ c         call cloudy(home,descriptor,nl,s)
 c         allocate(nciv(s)); 
          call read_cloudy_output(home,descriptor,'O ','VI  ',nl,s,mask,
      &                           novi4)
-         do j=1,nl
-            write (6,*) 'j,mask,nhi,novi',j,mask(j),nhi4(j),novi4(j)
-         end do
          !**** generate artificial spectrum ****
          call qsosim(zqso(i),alpha_fit(i),rmag(i),begin_wave(i),dw,
-     +         sigblur,npix(i),nl,nhi4,z4,s,novi4,loglam,flux,
+     +         sigblur,npix(i),nl,nhi4,z4,mask,novi4,loglam,flux,
      +         noise,nnflux,flux_nc,noabs)
          !**** write qsosim output + qso general data into a fits file ****
          outfile='mockspec-'//descriptor//'.fits'

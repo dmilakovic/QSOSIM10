@@ -1,5 +1,5 @@
       subroutine read_cloudy_output(home,descriptor,atom,ion,nl,s,mask,
-     &              colden)
+     &              coldens)
       
       character home*120, descriptor*15, atom*2, ion*4, num*4
       character folder*90, name*40,filename*120, srow*5
@@ -7,7 +7,7 @@
       integer i,j,s,nr,io,a,b,t,nl
       integer,dimension(495) :: atom_num,ion_num
       integer, parameter :: max=10000
-      real*8, dimension(s) :: coldens
+      real*8, dimension(nl) :: coldens
       real*8, dimension(495) :: cd
       logical,dimension(4000) :: mask
       logical :: ex
@@ -20,20 +20,18 @@
     
       t=0
       do i=1,nl
-         write (6,*) 'mask =  ',mask(i)
+         coldens(i)=0.0
          if (mask(i).eqv..true.) then
             t=t+1
-            coldens(t)=0
             write(num,'(i4.4)') t
             name = 'system_'//num//'.rlt'
             filename = trim(folder)//'/system_'//num//'.rlt'
             filename = trim(filename)
-            write (6,*) 'filename     ',filename
             inquire(file=filename, exist=ex)
             if (ex.eqv..true.) then
                NR = 0
                OPEN(unit=25,file=name,iostat=io)
-               write(6,*) 'File opened'
+c               write(6,*) 'File opened'
                DO J=1,max 
                   READ(25,*,iostat=io) junk 
                   IF (io.ne.0) EXIT
@@ -54,18 +52,16 @@
 c                  write (6,55) atom_num(j),ion_num(j),cd(j)
                end do
                CLOSE(25)
-      write (6,*) 'closed file'
+c             write (6,*) 'closed file'
                call find_atom(atom,ion,a,b)
                do j=1,495
                   if (atom_num(j).eq.a.and.ion_num(j).eq.b) then
-                     coldens(t)=cd(j)
-                    write(6,*) 'atom_num,ion_num,coldens',
-     &                   atom_num(j),ion_num(j),coldens(i)
+                     coldens(i)=cd(j)
+c                    write(6,*) 'atom_num,ion_num,coldens',
+c     &                   atom_num(j),ion_num(j),coldens(i)
                   end if
                end do
             end if
-         else
-            write (6,*) i,'not dense enough'
          end if
       end do
  55      format (i2,2x,i2,2x,d16.10)
