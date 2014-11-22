@@ -1,26 +1,27 @@
 !=======================================================================
       subroutine qsosim(zqso,alpha,rmag,wstart,pw,
-     +         sigblur,npix,nl,nhi4,z4,loglam,flux,
-     +         noise,nnflux,flux_nc)
+     +         sigblur,npix,nl,nhi4,z4,s,novi4,loglam,flux,
+     +         noise,nnflux,flux_nc,noabs)
 !=======================================================================
       !generate the artificial spectrum
       !input, real*8              : zqso, alpha, rmag, wstart, pw, sigblur
       !input, integer             : npix, nl
       !input, real*8 array(nl)    : nhi4, z4
-      !output, real*8 array(npix) : loglam, flux, noise, nnflux, flux_nc
+      !output, real*8 array(npix) : loglam, flux, noise, nnflux, flux_nc, noabs
 !=======================================================================
       implicit none
-      integer :: i,j,npix,idum,numpix,nl
+      integer :: i,j,npix,idum,numpix,nl,s
       integer,parameter :: nems=63
       real*8 :: wstart,wend,pw,zqso,zqsop1,const,rmag,f6182,alpha,nuplim
       real*8 :: sigblur,dark,gain,ronsq
       real*8 :: vlight,pi,h,g,c,d,t
       real*4 :: xmin,xmax,ymin,ymax,x,m,area
       real*4,dimension(npix)::lambda,en,qe,signal,pix,sky,ns,
-     +                                 noabs,conv,snr
-      real*8,dimension(npix)::loglam,flux,flux_nc,nnflux,noise
+     +                                 conv,snr
+      real*8,dimension(npix)::loglam,flux,flux_nc,nnflux,noise,noabs
       real*8 :: nhi4(4000),z4(4000), throughx(26), throughy(26)
-      real*8 :: lognhi,nhi,z,b,voigt
+      real*8,dimension(s) :: novi4
+      real*8 :: lognhi,nhi,novi,z,b,voigt
       real*8 :: wems(nems), relstr(nems), sigma(nems)
       character :: ion(nems)*2
       data pi/3.14159265/
@@ -74,11 +75,11 @@ c add emission lines to flux
       end do
 c keep unabsorbed spectrum
       do i=1,npix
-         noabs(i)=real(flux(i))
+         noabs(i)=flux(i)
       end do
 c initialise random numbers
       idum=time()
-c input absorption
+c input H I absorption
       do i=1,nl
          lognhi = nhi4(i)
          nhi = 10**lognhi
@@ -86,6 +87,14 @@ c input absorption
          b = 5*gasdev3(idum)+20
          call spvoigt(flux,lambda,npix,nhi,z,b,'H ','I   ')
       end do
+c input O VI absorption
+      do i=1,s
+         novi = novi4(i)
+         z = z4(i)
+         b = 3*gasdev3(idum)+12
+         call spvoigt(flux,lambda,npix,novi,z,b,'O ','VI  ')
+      end do
+      write (6,*) 'Oxygen inputted'
 c save uncolvolved flux real*8
       do i=1,npix
          flux_nc(i)=flux(i)
@@ -140,10 +149,10 @@ c         write (6,*) i, flux(i)
       end do
       ymax=ymax+0.2*ymax
       ymin=ymin-0.2*ymin
-c      call PGBEGIN(0,'/xserve',1,1)
-c      call PGENV(xmin,xmax,ymin,ymax,0,1)
-c      call PGLINE(npix,real(loglam),real(flux))
-c      call PGEND
+      call PGBEGIN(0,'/xserve',1,1)
+      call PGENV(xmin,xmax,ymin,ymax,0,1)
+      call PGLINE(npix,real(loglam),real(flux))
+      call PGEND
       
       end subroutine qsosim
 

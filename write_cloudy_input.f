@@ -1,4 +1,4 @@
-      subroutine write_cloudy_input(home,descriptor,z,nl,nhi4,s)
+      subroutine write_cloudy_input(home,descriptor,z,nl,nhi4,s,mask)
 ! ----------------------------------------------------------------------
       implicit none
       integer :: i,j,t
@@ -7,7 +7,7 @@
       character :: filename*90, line*100, cwd*30, home*120, folder*90
       character ::descriptor*15,num*4,makedirectory*100,lognhi*10,zed*10
       real*8,dimension(nl),intent(inout) :: nhi4
-      integer,dimension(nl) :: mask
+      logical,dimension(nl) :: mask
       real*8,intent(in) :: z
       logical ex
 ! ----------------------------------------------------------------------
@@ -27,13 +27,13 @@
       folder = trim(home)//'/cloudy_in/spec_'//descriptor
       s=0; t=0
       do i=1,nl
-         mask(i)=0
+         mask(i)=.false.
       end do
       do i=1,nl
 c         write (6,*) i,nhi4(i)
          if (nhi4(i).gt.14.0) then
             s=s+1
-            mask(i)=1
+            mask(i)=.true.
             write(num,'(i4.4)') s
             write(zed,'(f5.3)') z
             write(lognhi,'(f5.2)') nhi4(i)

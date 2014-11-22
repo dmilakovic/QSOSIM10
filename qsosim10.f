@@ -9,7 +9,7 @@ c  OUTPUT:  artificial SDSS catalogue
       INTEGER,PARAMETER :: npoints=10000,nrows=100000
       integer, parameter :: RegInt_K = selected_int_kind (12)
       integer (kind=RegInt_K) :: i
-      INTEGER :: nr,j,inoise, numlin, npts, nl,s,option
+      INTEGER :: nr,j,inoise, numlin, npts, nl,s,option,zstart_flag
       INTEGER :: z_w,id,iplate,imjd,ifiber,ipix,status
       REAL*8 :: wstart,wend,dw,mags(5)
       REAL*8 :: nc,nuplim,sigblur
@@ -24,10 +24,11 @@ c  OUTPUT:  artificial SDSS catalogue
       REAL*8,DIMENSION(nrows,5) :: psfmag
       REAL*8,DIMENSION(262144) :: loglam,flux
       REAL*4,DIMENSION(262144) :: pg_loglam, pg_flux
-      REAL*8,DIMENSION(262144) :: noise, nnflux,flux_nc
+      REAL*8,DIMENSION(262144) :: noise, nnflux,flux_nc, noabs
       REAL*8, DIMENSION(npoints) :: xs,ys,CDDF,H
       REAL*8,DIMENSION(4000) :: nhi4,z4
-      REAL*8,DIMENSION(:),allocatable :: nciv, novi
+      REAL*8,DIMENSION(:),allocatable :: nciv4, novi4
+      LOGICAL,DIMENSION(4000)::mask
       EXTERNAL :: read_nrows, SDSS_readfits, qsosim, spline, readfits, 
      &            power_laws, writefits, assign, write_cloudy_input
      &            cloudy
@@ -101,6 +102,10 @@ c     &         ra,dec,zqso,alpha,rmag,sigblur,s2n)
          wend=begin_wave(i)+npix(i)*dw 
          zstart=(10**begin_wave(i)/1215.67)-1.
          zend=zqso(i)
+         if (zstart.ge.zend) then
+            zstart_flag=zstart_flag+1
+            write(6,*) 'zstart >= zend!'; goto 99
+         end if
          ipix=npix(i)         
          !**** calculate the number of lines between zstart and zqso ****
          call power_laws(npoints,zstart,zend,xs,ys,CDDF,
@@ -112,16 +117,19 @@ c     &         ra,dec,zqso,alpha,rmag,sigblur,s2n)
          end do
          call assign(npoints,zstart,zend,xs,CDDF,nl,ni,nhi4,z4)
          !**** write files used by cloudy, call cloudy and read results ****
-         call write_cloudy_input(home,descriptor,zend,nl,nhi4,s)
+         call write_cloudy_input(home,descriptor,zend,nl,nhi4,s,mask)
 c         call cloudy(home,descriptor,nl,s)
-c         allocate(novi(s)); 
+         allocate(novi4(nl)); 
 c         allocate(nciv(s)); 
-c         call read_cloudy_output(home,descriptor,'H ','I   ',s,mask,
-c     &                          novi)
+         call read_cloudy_output(home,descriptor,'O ','VI  ',nl,s,mask,
+     &                           novi4)
+         do j=1,nl
+            write (6,*) 'j,mask,nhi,novi',j,mask(j),nhi4(j),novi4(j)
+         end do
          !**** generate artificial spectrum ****
          call qsosim(zqso(i),alpha_fit(i),rmag(i),begin_wave(i),dw,
-     +         sigblur,npix(i),nl,nhi4,z4,loglam,flux,
-     +         noise,nnflux,flux_nc)
+     +         sigblur,npix(i),nl,nhi4,z4,s,novi4,loglam,flux,
+     +         noise,nnflux,flux_nc,noabs)
          !**** write qsosim output + qso general data into a fits file ****
          outfile='mockspec-'//descriptor//'.fits'
          do j=1,5
@@ -131,7 +139,7 @@ c     &                          novi)
      +                  zqso(i),z_flag(i),alpha(i),alpha_fit(i),rmag(i),
      +                  SDSS_name(i),thing_id(i),plate(i),mjd(i),
      +                  fiber(i),npix(i),wstart,mags,loglam,flux,noise,
-     +                  nnflux,flux_nc)
+     +                  nnflux,flux_nc,noabs)
          write (6,*)'--------------------------------------------------'
          do j=1,262144
             pg_loglam(j)=real(loglam(j))
@@ -145,19 +153,21 @@ c     &                          novi)
             flux_nc(j)=0.0
             nnflux(j)=0.0
          end do
+ 99      continue
       end do
       write (6,*)'=================================================='
       write (6,*)'               DATA SET COMPLETED!                '
       write (6,*)'=================================================='
+      write (6,*)'QSOs with zstart>zend :',zstart_flag
 ! ---------------------------------------------------------------------
 ! PLOT QSO SPECTRUM OF THE LAST SOURCE
 ! --------------------------------------------------------------------- 
-      call PGBEGIN (0,'/xserve',1,1)
-      call PGENV (3.55,4.02,0.0,20.0,0,1)
-      call PGLABEL('log NHI','z','Random selection of NHI-z')
+c      call PGBEGIN (0,'/xserve',1,1)
+c      call PGENV (3.55,4.02,0.0,20.0,0,1)
+c      call PGLABEL('log NHI','z','Random selection of NHI-z')
 c      call pgpt(nl,real(nhi4),real(z4),2)
-      call pgline(ipix,pg_loglam,pg_flux)
-      call PGEND
+c      call pgline(ipix,pg_loglam,pg_flux)
+c      call PGEND
 c      write (6,*) 'nothing else here!'
 ! --------------------------------------------------------------------- 
 ! FREE ALLOCATED MEMORY

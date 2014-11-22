@@ -2,7 +2,7 @@ c-------------------------------------------------------------------------------
       SUBROUTINE writefits(home,folder,outfile,wra,wdec,wzqso,wz_w,
      &                     walpha_nu,walpha,wrmag,wname,id,iplate,imjd,
      &                     ifiber,ipix,wwstart,wmags,lambda,flux,flerr,
-     &                     nnflux,flux_nc)
+     &                     nnflux,flux_nc,noabs)
 c     PURPOSE: create a fits file with parameters returned by qsosim9
 c     OUTPUT:  spectrum.fits file with lambda,flux,sigma,no-noise-flux
 c-------------------------------------------------------------------------------
@@ -15,11 +15,11 @@ c Declare variables
       INTEGER :: wz_w,id,iplate,imjd,ifiber,ipix
       CHARACTER :: wname*18
       REAL*8,dimension(ipix) :: lambda,flux,flerr,
-     &                                     nnflux,flux_nc
+     &                                     nnflux,flux_nc,noabs
       REAL*8 :: wra,wdec,wzqso,walpha,wrmag,
      &                     walpha_nu,wwstart,wmags(5)
       CHARACTER*20 :: ttype1(15), tunit1(15), tform1(15)
-      CHARACTER*20 :: ttype2(5), tunit2(5), tform2(5)
+      CHARACTER*20 :: ttype2(6), tunit2(6), tform2(6)
       CHARACTER*30 :: errtext, extname 
       CHARACTER :: home*120,folder*120,outfile*35,mockfolder*220
       LOGICAL :: simple, extend
@@ -52,13 +52,13 @@ c Define data to be inputted into fits file
       DATA ttype1/'RA','DEC','Z_VI','Z_WARNING','ALPHA_NU','ALPHA_FIT',
      &            'R_MAG','SDSS_name','THING_ID','PLATE','MJD','FIBER',
      &            'NPIX','BEGIN_WAVE','PSFMAG'/
-      DATA ttype2/'LOGLAM','FLUX','NOISE','NNFLUX','FLUX_NC'/
+      DATA ttype2/'LOGLAM','FLUX','NOISE','NNFLUX','FLUX_NC','NO_ABS'/
       
       DATA tform1/'D','D','D','J','D','D','D','18A','J','J','J',
      &            'J','J','D','5E'/
-      DATA tform2/'D','D','D','D','D'/
+      DATA tform2/'D','D','D','D','D','D'/
       DATA tunit1/'','','','','','','','','','','','','','',''/
-      DATA tunit2/'log','1e-17 erg/s/cm^2/A','','',''/
+      DATA tunit2/'log','1e-17 erg/s/cm^2/A','','','',''/
 c Create the first binary table HDU
       nrows=1
       tfields=15
@@ -98,7 +98,7 @@ c Create the second binary table HDU with data pertaining each QSO
       nrows=ipix
  250  format(f10.5,2x,f10.5,2x,f10.5,2x,f10.5)
 c      write (*,250)flerr(1:10)
-      tfields=5
+      tfields=6
       extname='QSO'
       call FTIBIN(unit,nrows,tfields,ttype2,tform2,tunit2,
      &            extname,varidat,status)
@@ -107,6 +107,7 @@ c      write (*,250)flerr(1:10)
       call FTPCLD(unit,3,1,1,nrows,flerr,status)
       call FTPCLD(unit,4,1,1,nrows,nnflux,status)
       call FTPCLD(unit,5,1,1,nrows,flux_nc,status)
+      call FTPCLD(unit,6,1,1,nrows,noabs,status)
 c Close fits file
       call FTCLOS(unit,status)
       call FTFIOU(unit,status)
