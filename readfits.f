@@ -1,6 +1,6 @@
 c-------------------------------------------------------------------------------
       SUBROUTINE readfits(filename, wstart,wend,dw,nc,nuplim,inoise,
-     +                   dvavoid,ra,dec,zqso,alpha,vmag,sigblur,s2n)
+     +                   dvavoid,ra,dec,zqso,alpha,rmag,sigblur,s2n)
 c     PURPOSE: read fits file containing data for qsosim9
 c     INPUT: filename  name of the fits file
 c     OUTPUT: 
@@ -28,7 +28,7 @@ c Declare variables
       REAL*8 :: wstart,wend,dw
       REAL*8 :: nc, nuplim,dvavoid
       INTEGER,DIMENSION(nrows):: numlls
-      REAL*8,DIMENSION(nrows) :: ra,dec,zqso,alpha,vmag,
+      REAL*8,DIMENSION(nrows) :: ra,dec,zqso,alpha,rmag,
      &                                 sigblur,s2n
       character :: filename*20,ttype(20)*10!, nhills,blls,zlls
       logical :: anynull
@@ -95,7 +95,7 @@ c Read column data, one row at a time, and print them out
      &       anynull,status)
             call FTGCVD(unit,4,irow,felem,nelems,nulle,alpha(irow),
      &       anynull,status)
-            call FTGCVD(unit,5,irow,felem,nelems,nulle,vmag(irow),
+            call FTGCVD(unit,5,irow,felem,nelems,nulle,rmag(irow),
      &       anynull,status)
             call FTGCVD(unit,6,irow,felem,nelems,nulle,sigblur(irow),
      &       anynull,status)

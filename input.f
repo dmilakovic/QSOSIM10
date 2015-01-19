@@ -14,7 +14,7 @@ c Declare variables
       REAL*8 :: alphamin, alphamax, dalpha ,nc, nuplim
       REAL*8 :: wstart, wend, dw
       REAL :: ran3
-      REAL*8,DIMENSION(nobj) :: ra, dec, zqso, alpha, vmag, dvavoid, 
+      REAL*8,DIMENSION(nobj) :: ra, dec, zqso, alpha, rmag, dvavoid, 
      +                        sigblur, s2n
 c      INTEGER,DIMENSION(nobj) :: numlls
 c      REAL*4,DIMENSION(nobj) :: nhills1,blls1,zlls1,nhills2,blls2,zlls2
@@ -52,11 +52,11 @@ c       numlls,dvavoid,nhills(i),blls(i),zlls(i)
       alphamax=1
       dalpha=alphamax-alphamin
 
-      wstart=3650
-      wend=10400     !DR10 Ahn et al. 2013
-      dw=0.05
+      wstart=alog10(3650.)    !SDSS BOSS pixels constant in velocity space
+      wend=alog10(10400.)     !DR10 Ahn et al. 2013
+      dw=0.0001               
       nc=1.00e12
-      nuplim=1.00e17
+      nuplim=1.00e22
       sigblur=3.0
       s2n=100
       inoise=1
@@ -76,8 +76,8 @@ c Generate random coordinates
           ra(i)=ramin+dra*ran3(idum)
           dec(i)=decmin+ddec*ran3(idum)
           zqso(i)=zmin+float(i)*dz/nobj
-          alpha(i)=-0.7!alphamin+dalpha*ran3(idum)
-          vmag(i)=16.0
+          alpha(i)=1.1724680895474!-0.7!alphamin+dalpha*ran3(idum)
+          rmag(i)=21.72
       END DO
 c-------------------------------------------------------------------------------
       unit=1
@@ -97,7 +97,7 @@ c-------------------------------------------------------------------------------
 c-------------------------------------------------------------------------------
 c Define data to be inputted into fits file
       DATA ttype1/'wstart','wend','dw','nc','nuplim','inoise','dvavoid'/
-      DATA ttype2/'RA','DEC','Z_qso','alpha','vmag','sigblur',
+      DATA ttype2/'RA','DEC','Z_qso','alpha','rmag','sigblur',
      &            's2n'/
       
       DATA tform1/'d','d','d','d','d','J','d'/
@@ -138,7 +138,7 @@ c Create the second binary table HDU with data pertaining each QSO
       call FTPCLD(unit,2,1,1,nrows,dec,status)
       call FTPCLD(unit,3,1,1,nrows,zqso,status)
       call FTPCLD(unit,4,1,1,nrows,alpha,status)
-      call FTPCLD(unit,5,1,1,nrows,vmag,status)
+      call FTPCLD(unit,5,1,1,nrows,rmag,status)
       call FTPCLD(unit,6,1,1,nrows,sigblur,status)
       call FTPCLD(unit,7,1,1,nrows,s2n,status)
 c Close fits file

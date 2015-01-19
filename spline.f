@@ -1,26 +1,40 @@
 !====================================================================
-      subroutine spline(npts,xs,ys,CDDF)
+      subroutine spline(npts,nc,nuplim,xs,ys,CDDF)
 !====================================================================
-! Spline interpolation
-! Comments: values of function f(x) are calculated in n base points
-! then: spline coefficients are computed
-!       spline interpolation is computed in 2n-1 points, 
-!       a difference sum|f(u)-ispline(u)| 
+* Using data points from Prochaska et al. (2014), that uniqely define
+* the column density distribution function - CDDF - of neutral 
+* hydrogen, interpolate values of CDDF at npoints between the column
+* densities nc and nuplim
+
+*      input, integer             : npts         number of points to 
+*                                                interpolate the spline
+*      input, real*8              : nc           lower limit in N(H I)
+*                                   nuplim       upper limit in N(H I)
+*      output, real*8 array(npts) : xs           values of log N(H I) 
+*                                                for which interpolation 
+*                                                was done
+*                                   ys           values of f(N,X) for which 
+*                                                interpolation was done
+*                                   CDDF         values of CDDF fow which
+*                                                interpolation was done
 !====================================================================
       implicit none
       real :: xmin, xmax, ymin, ymax      ! given interval of x()
       integer, parameter :: n=8 ! number of points of spline
+      integer, intent(in) :: npts
       real*8, dimension(n) :: xi,yi,b,c,d
-      real*8, dimension(npts) :: xs,xe,ys,ye,z,CDDF,H
+      real*8, dimension(npts) :: xe,ye,z,H
+      real*8, dimension(npts) :: xs,ys,CDDF
       real*8, dimension(npts) :: sumN,sumX,sumW, weight, lines
-      integer i,j,numlin,npts,nl
+      real*8, intent(in) :: nc, nuplim
+      integer i,j,numlin,nl
       real*8 ispline
       real*8 dx, dxe, total
       real*8  zstart,zend, dz, bigX
       external func, gamma, gauss16
       real*8 func, gamma, gauss16
 
-c Data points
+c Data points (Prochaska et al. 2014)
           data xi/12.0,15.0,17.0,18.0,20.0,21.0,21.5,22.0/
           data yi/-9.71,-14.41,-17.94,-19.39,-21.28,-22.82,-23.95,-25.5/
 
@@ -33,8 +47,8 @@ c s(x) = y(i) + b(i)*(x-x(i)) + c(i)*(x-x(i))**2 + d(i)*(x-x(i))**3
           data d/2.41112094E-02,1.91877093E-02,8.12238082E-02,
      +          -0.113830194,-4.29184213E-02,-0.264353245,-0.179997146,
      +          -0.179997146/
-      xmin = 12.00  !12.00
-      xmax = 22.00  !22.00
+      xmin = alog10(real(nc))  !12.00
+      xmax = alog10(real(nuplim))  !22.00
 !====================================================================
       write (6,*)'=================================================='
       write (6,*) 'Started SPLINE!'
@@ -45,19 +59,6 @@ c s(x) = y(i) + b(i)*(x-x(i)) + c(i)*(x-x(i))**2 + d(i)*(x-x(i))**3
 c      errav = 0.0
       dx = (xmax-xmin)
       total=0.
-!---- calculate normalization constant ------------------------------
-      do i=1, npts
-         total=total+gauss16(gamma,dble(0.0),dble(i))
-      end do
-!---- calculate weight of steps -------------------------------------
-      do i=1, npts
-         weight(i) = 0
-         sumW(i) = 0
-         do j=1,i
-            sumW(i) = sumW(i) + gauss16(gamma,dble(0.0),dble(j))
-         end do
-         weight(i) =float(npts+1-i+1)/(npts-1)! 1 - sumW(i)/total !
-      end do
 !---- interpolate spline ys on x points -----------------------------
       do i=1,npts
          xs(i)= xmin + dx*dble(i-1)/(npts-1)
@@ -100,60 +101,23 @@ c      errav = 0.0
       end do
       
 !====================================================================
-! step 6: calculate number of lines, n
-! n = integrate [f(NHI,z) dX/dz] dNHI dz
-! F = integrate [f(NHI,z) dNHI]
-! dX/dz = [H0*(1+z)^2]/H(z)
-! H(z) = H0 * Sqrt{[OmegaM(1+z)^3 + OmegaRAD(1+z)^4 + OmegaDE]}
-!      OmegaM  = 0.27
-!      OmegaDE = 0.73
-!      OmegaRAD approx 0
-! H = integrate [dX/dz] dz
-! n(i) = H * sumN(i)
-!====================================================================
-! calculate 
-c      zstart=1.96132994   !zstart=(wstart/1215.67)-1, wstart=3500
-c      zend=2.83167458
-c      dz=(zend-zstart)/npts
-c      total=gauss16(func,zstart,zend)
-c      do i=1,npts
-c         z(i)=zstart+dz*float(i-1)
-c      end do
-c      do i=1,npts
-c         sumX(i) = gauss16(func,z(1),z(i))
-c         H(i) = sumX(i)/total
-!         write (*,*) i,sum(i),H(i)
-c      end do
-!      do i=1,npts
-!!         write (*,*) i, x(i), sumN(i), sumX(i)
-!      end do
-c      bigX=gauss16(func,zstart,zend)
-c      write (6,*) bigX
-      nl=nint(lines(npts))!*gauss16(func,zstart,zend))
-c      write (6,*) 'No. of lines in log NHI range, F(NHI) = ', nl
+! number of lines is equal to the integral value at the last point
+      nl=nint(lines(npts))
 !====================================================================      
-      
+c      call PGBEGIN (0,'/null',1,1)
+c      call PGSLW(1)
+c      call PGENV (12.0,22.0,0.0,1.0,0,1)
+c      call PGLABEL ('lambda','flux','QSO spectrum')
+c      call pgline(npts,real(xs),real(CDDF))
+c      call pgsci(2)
+c      call pgline(npts,real(lambda),real(nnflux))
+c      call pgsci(1)
+c      call PGENV(11.5,22.5,2.00,2.1,0,1)
+c      call PGLABEL('log NHI','z','Random choice of NHI & redshift')
+c      call PGPT(nl,real(nhi4),real(z4),3)
+c      call PGEND
+      return
       end subroutine spline
-
-
-!======================================================================
-!  Function X(z)
-!======================================================================
-      function func(x)
-      real*8 f, x
-      f = ((1+x)**2)*(0.3*((1+x)**3) + 0.7)**(-0.5)
-      return
-      end function func
-!======================================================================
-!  Function Gamma(k,x)
-!======================================================================
-      function gamma(x)
-      real*8 f, x, k, th
-      k=1.0
-      th=0.5
-      f = x**(k-1)*exp(-x/th)
-      return
-      end function gamma
 
 !======================================================================
       function ispline(u, x, y, b, c, d, n)
