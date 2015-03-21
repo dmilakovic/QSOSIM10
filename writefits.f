@@ -1,8 +1,8 @@
 !=======================================================================
       SUBROUTINE writefits(home,folder,outfile,ra,dec,zqso,z_w,
-     &                     alpha_nu,alpha,rmag,name,id,iplate,imjd,
-     &                     ifiber,ipix,wstart,mags,lambda,flux,flerr,
-     &                     nnflux,flux_nc,noabs)
+     :                     alpha_nu,alpha,rmag,name,id,iplate,imjd,
+     :                     ifiber,ipix,wstart,mags,lambda,flux,flerr,
+     :                     ivar,nnflux,ncflux,noabs,nlin)
 c     PURPOSE: create a fits file with parameters returned by qsosim9
 c     OUTPUT:  spectrum.fits file with lambda,flux,sigma,no-noise-flux
 !=======================================================================
@@ -25,6 +25,7 @@ c     OUTPUT:  spectrum.fits file with lambda,flux,sigma,no-noise-flux
 *                                   imjd         SDSS mjd
 *                                   ifiber       SDSS fiber
 *                                   ipix         number of pixels in the spectrum
+*                                   nline        number of lines in the spectrum
 *      input, real*8 array(5)    :  mags         SDSS u,g,r,i,z magnitudes
 *      input, real*8 array(npix) :  loglam       wavelengths in log
 *                                   flux         flux in 10e-17 erg s-1 cm-2 A-1
@@ -40,19 +41,32 @@ c Declare variables
       INTEGER :: unit,i,status,blocksize,bitpix,naxis,naxes
       INTEGER :: fpixels(2),lpixels(2),nax(2)
       INTEGER :: nrows, tfields, varidat, colnum, idum, inoise
-      INTEGER :: z_w,id,iplate,imjd,ifiber,ipix
+      INTEGER :: z_w,id,iplate,imjd,ifiber,ipix,nlin
       CHARACTER :: name*18
-      REAL*8,dimension(ipix) :: lambda,flux,flerr,
-     &                                     nnflux,flux_nc,noabs
+      REAL*8,dimension(ipix) :: lambda,flux,flerr,ivar,
+     &                                     nnflux,ncflux,noabs
       REAL*8 :: ra,dec,zqso,alpha,rmag,
      &                     alpha_nu,wstart,mags(5)
+      REAL*8,dimension(3000)::cd,z,b
+      CHARACTER::atom(3000)*2,ion(3000)*4
       CHARACTER*20 :: ttype1(15), tunit1(15), tform1(15)
-      CHARACTER*20 :: ttype2(6), tunit2(6), tform2(6)
+      CHARACTER*20 :: ttype2(7), tunit2(7), tform2(7)
+      CHARACTER*20 :: ttype3(5), tunit3(5), tform3(5)
       CHARACTER*30 :: errtext, extname 
       CHARACTER :: home*120,folder*120,outfile*35,mockfolder*220
       LOGICAL :: simple, extend
 
-c Define parameters
+      type linelist
+         SEQUENCE
+         character*2 atom
+         character*4 ion
+         real*8 colden
+         real*8 rdf
+         real*8 bpar
+      end type
+      type (linelist) :: llist(3000)
+      common /linelist/llist
+c Define parameters, values same as in CFITSIO cookbook
       blocksize=2
       status=0
       simple=.true.
@@ -68,7 +82,7 @@ c-------------------------------------------------------------------------------
       call FTGIOU(unit,status)
  555  call FTINIT(UNIT,outfile,blocksize,status)
       if (status.eq.0)then 
-         print *,status,' Output file initialized'
+c         print *,status,' Output file initialized'
       else 
          print *,status,' ',errtext
       end if
@@ -77,22 +91,28 @@ c     Define primary array parameters
       call ftgerr(status,errtext)
 c-------------------------------------------------------------------------------
 c-------------------------------------------------------------------------------
-*     Define data to be inputted into fits file: type, form & unit
+*     Define data to be inputted into fits file: type, format & units
       DATA ttype1/'RA','DEC','Z_VI','Z_WARNING','ALPHA_NU','ALPHA_FIT',
      &            'R_MAG','SDSS_name','THING_ID','PLATE','MJD','FIBER',
      &            'NPIX','BEGIN_WAVE','PSFMAG'/
-      DATA ttype2/'LOGLAM','FLUX','NOISE','NNFLUX','FLUX_NC','NO_ABS'/
+      DATA ttype2/'LOGLAM','FLUX','NOISE','IVAR','NNFLUX','NCFLUX',
+     &            'NO_ABS'/
+      DATA ttype3/'ATOM','ION','COLDEN','Z','B'/
       
       DATA tform1/'D','D','D','J','D','D','D','18A','J','J','J',
      &            'J','J','D','5E'/
-      DATA tform2/'D','D','D','D','D','D'/
+      DATA tform2/'D','D','D','D','D','D','D'/
+      DATA tform3/'2A','4A','D','D','D'/
       DATA tunit1/'','','','','','','','','','','','','','',''/
-      DATA tunit2/'log','1e-17 erg/s/cm^2/A','','','',''/
+      DATA tunit2/'log10(A)','1e-17 erg/s/cm^2/A','1e-17 erg/s/cm^2/A',
+     +  '1e-17 erg/s/cm^2/A','1e-17 erg/s/cm^2/A','1e-17 erg/s/cm^2/A',
+     +  '1e-17 erg/s/cm^2/A'/
+      DATA tunit3/'','','cm^-2','','km/s'/
 *     Create the first binary table HDU
       nrows=1
       tfields=15
       varidat=0
-      extname='General'
+      extname='QSO_INFO'
       call FTIBIN(unit,nrows,tfields,ttype1,tform1,tunit1,
      &            extname,varidat,status)
 *     Put values in columns in the first binary table
@@ -114,22 +134,44 @@ c-------------------------------------------------------------------------------
 
 *     Create the second binary table HDU with data pertaining the QSO
       nrows=ipix
-      tfields=6
-      extname='QSO'
+      tfields=7
+      extname='QSO_SPECTRUM'
       call FTIBIN(unit,nrows,tfields,ttype2,tform2,tunit2,
      &            extname,varidat,status)
       call FTPCLD(unit,1,1,1,nrows,lambda,status)
       call FTPCLD(unit,2,1,1,nrows,flux,status)
       call FTPCLD(unit,3,1,1,nrows,flerr,status)
-      call FTPCLD(unit,4,1,1,nrows,nnflux,status)
-      call FTPCLD(unit,5,1,1,nrows,flux_nc,status)
-      call FTPCLD(unit,6,1,1,nrows,noabs,status)
+      call FTPCLD(unit,4,1,1,nrows,ivar,status)
+      call FTPCLD(unit,5,1,1,nrows,nnflux,status)
+      call FTPCLD(unit,6,1,1,nrows,ncflux,status)
+      call FTPCLD(unit,7,1,1,nrows,noabs,status)
+      call FTPDAT(unit,status)
+
+*     Create the third binary table HDU
+      nrows=nlin
+      tfields=5
+      varidat=0
+      extname='LINE_LIST'
+      call FTIBIN(unit,nrows,tfields,ttype3,tform3,tunit3,
+     &            extname,varidat,status)
+*     Put values in columns in the first binary table
+      atom=llist%atom
+      ion=llist%ion
+      cd=llist%colden
+      z=llist%rdf
+      b=llist%bpar
+      call FTPCLS(unit,1,1,1,nrows,atom,status)
+      call FTPCLS(unit,2,1,1,nrows,ion,status)
+      call FTPCLD(unit,3,1,1,nrows,cd,status)
+      call FTPCLD(unit,4,1,1,nrows,z,status)
+      call FTPCLD(unit,5,1,1,nrows,b,status)
+
 *     Close the FITS file
       call FTCLOS(unit,status)
       call FTFIOU(unit,status)
       call ftgerr(status,errtext)
       if (status.eq.0)then 
-         print *,status,' File saved'
+         write(6,*) 'QSO data & the spectrum saved in a FITS file.'
       else 
          print *,status,' ',errtext
       end if

@@ -1,7 +1,7 @@
 !=======================================================================
       subroutine qsosim(descriptor,zqso,alpha,rmag,wstart,pw,
-     +         npix,nl,nhi4,z4,mask,novi4,loglam,flux,
-     +         noise,nnflux,ncflux,noabs)
+     +         npix,nhil,nhi4,npnhi4,z4,znc4,loglam,flux,
+     +         noise,ivar,nnflux,ncflux,noabs,nlin)
 !=======================================================================
 *      generate the artificial spectrum
       
@@ -9,14 +9,11 @@
 *                                   alpha        spectral index
 *                                   rmag         r magnitude
 *                                   wstart       starting wavelength
-*                                   pw           pixel width
-*                                   sigblur      FWHM of the gaussian profile                 
+*                                   pw           pixel width              
 *      input, integer             : npix         number of pixels
-*                                   nl           number of H I lines
+*                                   nhil         number of H I lines
 *      input, real*8 array(nl)    : nhi4         H I col densities
 *                                   z4           H I redshifts
-*      input, logical array(nl)   : mask         mask of H I lines with N_HI > 1e15 cm-2
-*                                                (T if N_HI > 1e15 cm-2)
 
 *      output, real*8 array(npix) : loglam       wavelengths in log
 *                                   flux         flux in 10e-17 erg s-1 cm-2 A-1
@@ -24,26 +21,56 @@
 *                                   nnflux       no-noise flux
 *                                   flux_nc      not convolved flux
 *                                   noabs        flux with no absorption
+*     output, integer             : nlin         number of lines in the spectrum
 !=======================================================================
       implicit none
-      integer :: i,j,npix,idum,numpix,nl,s
+      integer :: i,j,npix,idum,numpix,nhil,ind,nlin
+      integer :: view,log_wav,with_noise,with_conv
       integer,parameter :: nems=63
       real*8 :: wstart,wend,pw,zqso,zqsop1,const,rmag,f6182,alpha,nuplim
-      real*8 :: sigblur,dark,gain,ronsq
-      real*8 :: vlight,pi,h,g,c,d,t
-      real*4 :: xmin,xmax,ymin,ymax,x,m,area
-      real*4,dimension(npix)::lambda,en,qe,signal,pix,sky,ns,
-     +                                 conv,snr
-      real*8,dimension(npix)::loglam,flux,ncflux,nnflux,noise,noabs
+      real*8 :: sigblur,ronsq,sigma
+      real*8 :: vlight,pi,planckh,g,d,t
+      real*4 :: xmin,xmax,ymin,ymax,x,m0,area,xx,yy
+      real*4,dimension(npix)::en,qe,signal,pix,sky,ns,
+     +                                 conv,snr,deltaflux,plflux
+      real*4,dimension(npix)::plotx,ploty,dark,gain
+      real*8,dimension(npix)::loglam,lambda,flux,ncflux,nnflux,noise
+      real*8,dimension(npix)::nmflux,noabs,mflux,ivar
+      real*8,dimension(npix)::npflux,nccflux !no proximity effect flux, testing purposes
       real*8 ::  throughx(26), throughy(26)
-      real*8,dimension(nl) :: nhi4,z4,novi4
-      real*8 :: lognhi,nhi,novi,z,b,voigt
-      real*8 :: wems(nems), relstr(nems), sigma(nems)
-      logical,dimension(nl)::mask
-      character :: ion(nems)*2, string*10, descriptor*15
+      real*8,dimension(nhil) :: nhi4,z4,npnhi4,novi4,znc4,deltaz
+      real*8 :: lognhi,nhi,novi,z,bpar,voigt,npnhi,znc,m
+*     LINE LIST
+*     define a new type of variable, containing the total line list: 
+*             atom, ionisation, redshift, column density, b-parameter
+      type linelist
+         SEQUENCE
+         character*2 atom
+         character*4 ion
+         real*8 colden
+         real*8 rdf
+         real*8 bpar
+      end type
+      type (linelist) :: llist(3000)
+      type (linelist),allocatable :: line(:)
+      common /linelist/llist
+      real*8 colden
+*     EMISSION LINES
+      real*8 :: wems(nems), relstr(nems), sig(nems)
+*     METALS
+      LOGICAL,DIMENSION(:),allocatable::mask
+      REAL*8,DIMENSION(30,20000) :: H,He,Li,Be,B,C,N,O,F,Ne,Na,Mg,Al,Si,
+     :                      P,S,Cl,Ar,K,Ca,Sc,Ti,Va,Cr,Mn,Fe,Co,Ni,Cu,Zn
+      common/metals/H,He,Li,Be,B,C,N,O,F,Ne,Na,Mg,Al,Si,
+     :                      P,S,Cl,Ar,K,Ca,Sc,Ti,Va,Cr,Mn,Fe,Co,Ni,Cu,Zn
+
+*     DATA
+      real*8 throughput
+      character :: spec(nems)*2, string*10, descriptor*15, name*35
+      character :: atom*2,ion*4
       data pi/3.14159265/
       data vlight/299792.458/
-      data h/6.62607e-27/             !units: ergs*s
+      data planckh/6.62607e-27/             !units: ergs*s
 *     throughput of SDSS BOSS, figure 38. in Smee et al. 2013.
       data throughx/3650.0,3850.0,4120.0,4400.0,4900.0,5230.0,5500.0,
      +     6000.0,6150.0,6500.0,7000.0,7130.0,7500.0,7550.0,
@@ -54,28 +81,42 @@
      +     0.27,0.255,0.212,0.229,0.233,0.206,0.22,
      +     0.13,0.148,0.135,0.09,0.05/
       real*8 gasdev3,ran3
-      external gasdev3, ran3, blur
+      external gasdev3, ran3, blur,througput
+
 
 
 * parameters
       wend=wstart+npix*pw
+* ----------------------------------------------------------------------
+*               P O W E R - L A W     C O N T I N U U M
+* ----------------------------------------------------------------------
 * underlying continuum
-      m = 3631*1e-23*((vlight*1e3)/(0.6182e-6)**2)*1e-10 ! magnitude, conversion: 10e-23 erg s-1 cm-2 Hz-1 --> erg s-1 cm-2 A-1
-      m = alog10(m)/0.4                                  
-      f6182=10**(-(rmag-m)/2.5)
+*     convert magnitude into physical flux
+*     m0 - referent magnitude, conversion factor: 10e-23 erg s-1 cm-2 Hz-1 --> erg s-1 cm-2 A-1
+      m0 = 3631*1e-23*((vlight*1e3)/(0.6182e-6)**2)*1e-10 
+      m0 = alog10(m0)/0.4   
+      f6182=10**(-(rmag-m0)/2.5)
       const=f6182/(1.0/6182.0**(2.0+alpha))*1e17         !f_lambda = const * lambda**-(2+alpha) [1e17 erg s-1 cm-2 A-1]
       do i=1,npix
          loglam(i)=wstart+(i-1)*pw
          lambda(i)=10**loglam(i)
          flux(i)=const*(1.0/(lambda(i)**(alpha+2)))
       end do
+* save power-law
+      plflux=flux
+
+* ----------------------------------------------------------------------
+*              Q S O    E M I S S I O N     L I N E     I N P U T
+* ----------------------------------------------------------------------
+* initialise random numbers
+      idum=time()
 * read emission lines from file
       open(unit=12,file='emission.dat',err=101)
       goto 102
  101  write (6,*) 'error opening file'
       stop
  102  do i=1,nems
-         read(12,*) wems(i),relstr(i),sigma(i),ion(i)
+         read(12,*) wems(i),relstr(i),sig(i),spec(i)
       end do
       close(unit=12)
 * add emission lines to flux
@@ -84,137 +125,187 @@
       do j=1,nems
          wems(j)=wems(j)*zqsop1
          relstr(j)=relstr(j)/100.
+         sigma=4*sig(j)+0.1*gasdev3(idum)*sig(j)
          do i=1,npix
             x=2.0*relstr(j)*const            !1.75*
      +           *(1.0/wems(j)**(2+alpha))
             g=x*exp(-.5*(((lambda(i)-wems(j))
-     +           /(sigma(j)))**2))
+     +           /(sigma))**2))
             flux(i)=flux(i)+g
          end do
       end do
-* keep unabsorbed spectrum
-      do i=1,npix
-         noabs(i)=flux(i)
-      end do
-* initialise random numbers
-      idum=time()
-* input H I absorption
-      do i=1,nl
-         lognhi = nhi4(i)
-         nhi = 10**lognhi
+*     keep unabsorbed spectrum
+      noabs=flux
+      npflux=flux
+* ----------------------------------------------------------------------
+*              A B S O R P T I O N     L I N E     I N P U T
+* ----------------------------------------------------------------------
+*     create a line list, using HI line list from 'assign'
+*     'addsys' adds an HI line to the complete line list, and inputs 
+*     metals if HI column density >= 10^17 cm^-2
+*     nhi in linear, not log scale
+      call rwllist(0)
+      j=0
+      do i=1,nhil
+         j=j+1
+         nhi = nhi4(i)
          z = z4(i)
-         b = 5*gasdev3(idum)+20
-         call spvoigt(flux,lambda,npix,nhi,z,b,'H ','I   ')
+         znc=znc4(i)
+         npnhi = npnhi4(i)
+         bpar = 5*gasdev3(idum)+22
+         call addsys(j,nhi,z,bpar)
       end do
-* input O VI absorption
-c      do j=1,nl
-c            write (6,*) 'j,mask,nhi,novi',j,mask(j),nhi4(j),novi4(j)
-c         end do
-      do i=1,nl
-         if (mask(i).eqv..true.) then
-            novi = novi4(i)
-            z = z4(i)
-            b = 3*gasdev3(idum)+12
-            call spvoigt(flux,lambda,npix,novi,z,b,'O ','VI  ')
+*     add a custom LLS
+c      call addsys(j+1,1d22,2.4d0,24.48d0)
+c      call addsys(j+2,8.76d20,2.387d0,22.3d0)
+c      call addsys(j+3,2.16d21,2.407d0,20.67d0)
+c      call addsys(j+4,0.16d21,2.3817d0,21.33d0)
+*     total number of lines = nlin
+      nlin=j!+4
+*     count the number of systems with metals
+      write(6,*) 'Metal absorption input '
+*     save the line list into a new array that will be output and saved
+      allocate(line(nlin))
+      do i=1,nlin
+         line(i)=llist(i)
+      end do
+*     prepare arrays for metal-only (mflux) and no-metal (nmflux) absorption 
+      mflux = flux
+      nmflux= flux
+*     retrieve the complete line list and input lines using 'spvoigt'
+      do i=1,nlin
+         atom=llist(i)%atom
+         ion=llist(i)%ion
+         colden=llist(i)%colden
+         z=llist(i)%rdf
+         bpar=llist(i)%bpar
+         call spvoigt(flux,lambda,npix,colden,z,bpar,atom,ion)
+         if (colden.ge.1d19) write(6,*) i,colden,z,bpar
+         if (atom.eq.'H '.and.ion.eq.'I   ') then
+*           create spectrum with no metal absorption
+            call spvoigt(nmflux,lambda,npix,colden,z,bpar,atom,ion)
+         else if (atom.ne.'H ') then
+*           create spectrum with metal only absorption
+            call spvoigt(mflux,lambda,npix,colden,z,bpar,atom,ion)
          end if
       end do
-* save uncolvolved flux real*8
-      do i=1,npix
-         ncflux(i)=flux(i)
+*     no proximity effect
+      j=0
+      do i=1,nlin
+         atom=llist(i)%atom
+         ion=llist(i)%ion
+         if (atom.eq.'H '.and.ion.eq.'I   ') then
+            j=j+1
+            z=llist(i)%rdf
+            bpar=llist(i)%bpar
+         end if
+         colden=npnhi4(j)
+         call spvoigt(npflux,lambda,npix,colden,z,bpar,'H ','I   ')
       end do
-* add instrumental blurring:
+* ----------------------------------------------------------------------
+* save uncolvolved flux real*8
+      ncflux=flux
+      nccflux=npflux
+* ----------------------------------------------------------------------
+*             I N S T R U M E N T A L    B L U R R I N G
+* ----------------------------------------------------------------------
 * BOSS resolution R~2000, sigma_v=vlight/(2.35*R)=64 km/s
 * using log10(sigma_v) since the wavelength scale is log
       call blur(flux,npix,dble(alog10(64.0)))                             
-                                                                          
+c      call blur(npflux,npix,dble(alog10(64.0)))  
+c      call blur(mflux,npix,dble(alog10(64.0)))
+*     offset the no prox flux to be better visible in the plot
+* ----------------------------------------------------------------------
+*               I N S T R U M E N T A L    N O I S E
+* ----------------------------------------------------------------------
 * save convolved no-noise flux real*8
-      do i=1,npix
-         nnflux(i)=flux(i)
-      end do
+      nnflux=flux
 * add BOSS noise : 
-      c=0
       numpix=npix*3                                                       !total number of pixels, Smee et al: spectrum width ~ 3 pix
-      t=60*60                                                             !integration time, usually 4x15 min = 60x60 s [sec]
-      area=pi*250**2                                                      !telescope collecting area [cm2], radius=250 cm
+      t=60*90                                                            !integration time, usually 4x15 min = 60x60 [sec]
+      area=pi*250**2                                                      !telescope collecting area [cm^2], radius=250 cm
+      pix=(1./vlight)*69*lambda                                           !pixel size [A], Bolton et al. 2012. : BOSS pixels constant in velocity space: 69 km/s
+      en=(vlight*1e3)*planckh/((lambda)*1e-10)*1e17                       !incident photon energy [1e-17 ergs]
+c      qe=0.20*exp(-.5*(((lambda-5080.0)/8.1e2)**2))                       !throughput model: 5 gaussians
+c     +     +0.17*exp(-.5*(((lambda-7200.0)/7e2)**2))                      !modelled after fig 38 in Smee et al. 2012
+c     +     +0.15*exp(-.5*(((lambda-9000.0)/8e2)**2))
+c     +     +0.10*exp(-.5*(((lambda-7000.0)/20e2)**2))
+c     +     -0.19*exp(-.5*(((lambda-7550.0)/20)**2))
       do i=1,npix
-         pix(i)=(1./vlight)*69*lambda(i)                                  !pixel size [A], Bolton et al. 2012. : BOSS pixels constant in velocity space: 69 km/s
-         c = c + pix(i)
-         d = gasdev3(idum)
-         en(i)=vlight*h/((lambda(i))*1e-10)*1e17                          !incident photon energy [1e-17 ergs]
-         qe(i)=0.20*exp(-.5*(((lambda(i)-5080.0)/8.1e2)**2))              !throughput model: 5 gaussians
-     +        +0.17*exp(-.5*(((lambda(i)-7200.0)/7e2)**2))                !modelled after fig 38 in Smee et al. 2012
-     +        +0.15*exp(-.5*(((lambda(i)-9000.0)/8e2)**2))
-     +        +0.10*exp(-.5*(((lambda(i)-7000.0)/20e2)**2))
-     +        -0.19*exp(-.5*(((lambda(i)-7550.0)/20)**2))
-         signal(i)=nnflux(i)*t*pix(i)*area/(en(i)*qe(i))                  !signal in incident photons
-         sky(i)=abs(gasdev3(idum)*10**6.2)                                !background signal in incident photons  (previously: 1e6)
-!  ***   use different values for red and blue arms of the spectrographs
+         qe(i)=throughput(lambda(i))
+      end do
+      signal=nnflux*t*pix*area/(en*qe)                                    !signal [in incident photons]
+      sky=abs(gasdev3(idum)*10**1.2)                                      !background signal in incident photons  (previously: 1e6.2)
+      do i=1,npix
+*     use different values for red and blue arms of the spectrographs
          if((lambda(i).ge.3600.0).and.(lambda(i).lt.6050.))then
-            dark=(0.525+0.022*gasdev3(idum))/900                              !e-/pixel/s
-            gain=1.02+0.01*gasdev3(idum)                                  !e-/ADU
+            dark(i)=(0.525+0.022*gasdev3(idum))/900                              !e-/pixel/s
+            gain(i)=1.02+0.01*gasdev3(idum)                                  !e-/ADU
          else
-            dark=(1.065+0.161*gasdev3(idum))/900                              !e-/pixel/s
-            gain=1.70+0.07*gasdev3(idum)                                  !e-/ADU
+            dark(i)=(1.065+0.161*gasdev3(idum))/900                              !e-/pixel/s
+            gain(i)=1.70+0.07*gasdev3(idum)                                  !e-/ADU
          end if
-         ronsq=(2.25+0.2*gasdev3(idum))**2                                ! read-out**2 noise (e-) (per read-out!, interval = 55sec)
-c         d = sign(1d0,d)
-         ns(i)=d*sqrt(signal(i)+(sky(i)+dark*t)*numpix+ronsq*(t/55))        ! total noise in e-
-         noise(i)=ns(i)*en(i)/qe(i)/(t*pix(i)*area)                        ! noise in erg s-1 cm-1 A-1
-         flux(i) = nnflux(i)+noise(i)
-         snr(i)=abs(nnflux(i)/noise(i))
-c         write(6,'(3f12.3)') nnflux(i),noise(i),snr(i)
       end do
-c plot      
-      xmin=10**real(wstart)
-      xmax=10**real(wend)
-      ymin=0.0
-      ymax=0.0
+      ronsq=(2.25+0.2*gasdev3(idum))**2 ! read-out**2 noise (e-) (per read-out!, interval = 55sec)
+      ns=sqrt(signal+sky+(dark*t)*numpix+ronsq*(t/55))
+      ns=ns*en/qe/(t*pix*area)
+      ivar=1/ns**2
       do i=1,npix
-c         write (6,*) i, flux(i)
-         if (flux(i).gt.ymax) ymax=flux(i)
-         if (flux(i).lt.ymin) ymin=flux(i)
+         d = gasdev3(idum)
+c         ns(i)=sqrt(signal(i)+sky(i)+(dark(i)*t)*numpix+ronsq*(t/55)) ! total noise in e-
+         noise(i)=d*ns(i) ! noise in erg s-1 cm-1 A-1
       end do
-      ymax=ymax+0.2*ymax
-      ymin=ymin-0.2*ymin
-      call PGBEGIN(0,'/null',1,1)
-c      call PGBEGIN(0,'spectrum_sigma69.ps/cps',1,1)
+      flux = nnflux+noise
+      snr=abs(nnflux/noise)
+c      do i=1,npix
+c         write(6,'(6f12.3)')nnflux(i),noise(i),snr(i)
+c      end do
+* ----------------------------------------------------------------------
+*               P L O T T I N G    T H E    S P E C T R U M
+* ----------------------------------------------------------------------
+c     PLOT
+*     view       =1 : plot the spectrum in X-window 
+*                =0 : plot the spectrum to a file 
+*     log_wav    =1 : log wavelengths
+*                =0 : lin wavelengths
+*     with_noise =1 : flux with noise
+*                =0 : flux with no noise
+*     with_conv  =1 : convolved flux 
+*                =0 : uncolvolved flux         
+      view=1
+      log_wav=0
+      with_noise=1
+      with_conv=0
+
+      call plotsp(view,log_wav,with_noise,descriptor,zqso,rmag,npix,
+     :loglam,lambda,noabs,plflux,flux,ncflux,nnflux,nmflux,mflux,npflux,
+     :noise)
+      write(6,*) 'Spectrum plotted in a PS file'
+      deltaz=z4-znc4
+      ymax=maxval(deltaz)
+      plotx=0.0
+      do i=1,nhil
+         plotx(i)=i
+      end do
+      ploty=real(deltaz)
+      name=trim('./plots/clus-noclust_example.ps')
+      if (view.eq.0) then
+         call PGBEGIN(0,name//'/cps',1,1)
+      else if (view.eq.1) then
+         call PGBEGIN(0,'/null',1,1)
+      end if
       call PGSLW(3)
-      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
-      call PGMTXT('T',1.0,0.5,0.5,descriptor)
-      write(string,'(f5.2)') rmag
-      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
-      write(string,'(f8.6)') zqso
-      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
-      call PGSLW(1)
-      call PGLINE(npix,real(lambda),real(flux))
-      call PGSCI(3)
-      call PGLINE(npix,real(lambda),real(noabs))
-      call PGSCI(5)
-      call PGLINE(npix,real(lambda),real(ncflux))
-      call PGSCI(2); call PGSLW(3)
-      call PGLINE(npix,real(lambda),real(nnflux))
-      call PGSCI(1)
+      call PGENV(0.0,real(nhil+1),-0.20,0.20,0,0,1)
+      call PGLABEL('Line #','\gDz = z\dclust.\u-z\dno clust.\u',
+     : 'Distribution of \gDz')
+      call PGPT(nhil,plotx,ploty,5)
+      call PGHIST(nhil,ploty,-0.10,0.30,20,0)
+      write(string,'(i5)') nhil
+      call PGMTXT('t',-1.5,0.75,0.0,'Total # lines='//string)
+      call PGLABEL('\gD z','#','')
       call PGEND
       return
       end subroutine qsosim
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 c Numercial Recipes subroutine
@@ -350,200 +441,494 @@ c *** do blurring
 	enddo
 	return
 	end
-c$$$
-c$$$!======================================================================
-c$$$      SUBROUTINE convlv(data,n,respns,m,isign,ans)
-c$$$!======================================================================
-c$$$      INTEGER isign,m,n,NMAX
-c$$$      REAL data(n),respns(n)
-c$$$      COMPLEX ans(n)
-c$$$      PARAMETER (NMAX=4096) !Maximum anticipated size of FFT.
-c$$$C     USES realft,twofft
-c$$$C     Convolves or deconvolves a real data set data(1:n) (including any user-supplied zero
-c$$$C     padding) with a response function respns, stored in wrap-around order in a real array of
-c$$$C     length m < n. (m should be an odd integer.) Wrap-around order means that the rst half
-c$$$C     of the array respns contains the impulse response function at positive times, while the
-c$$$C     second half of the array contains the impulse response function at negative times, counting
-c$$$C     down from the highest element respns(m). On input isign is +1 for convolution, −1
-c$$$C     for deconvolution. The answer is returned in the rst n components of ans. However, ans
-c$$$C     must be supplied in the calling program with length at least 2*n, for consistency with
-c$$$C     twofft. n MUST be an integer power of two.
-c$$$      INTEGER i,no2
-c$$$      COMPLEX fft(NMAX)
-c$$$      do i=1,(m-1)/2 !Put respns in array of length n.
-c$$$         respns(n+1-i)=respns(m+1-i)
-c$$$      end do
-c$$$      do i=(m+3)/2,n-(m-1)/2 !Pad with zeros.
-c$$$         respns(i)=0.0
-c$$$      end do
-c$$$      call twofft(data,respns,fft,ans,n)
-c$$$      no2=n/2
-c$$$      do i=1,no2+1
-c$$$         if (isign.eq.1) then
-c$$$            ans(i)=fft(i)*ans(i)/no2 !Multiply FFTs to convolve.
-c$$$         else if (isign.eq.-1) then
-c$$$            if (abs(ans(i)).eq.0.0) then 
-c$$$               stop 'deconvolving at response zero in convlv'
-c$$$            end if
-c$$$            ans(i)=fft(i)/ans(i)/no2 !Divide FFTs to deconvolve.
-c$$$         else
-c$$$            stop 'no meaning for isign in convlv'
-c$$$         endif
-c$$$      end do
-c$$$      ans(1)=cmplx(real(ans(1)),real(ans(no2+1))) !Pack last element with first for realft.
-c$$$      call realft(ans,n,-1) !Inverse transform back to time domain.
-c$$$      return
-c$$$      END SUBROUTINE convlv
-c$$$
-c$$$!======================================================================
-c$$$      SUBROUTINE twofft(data1,data2,fft1,fft2,n)
-c$$$!======================================================================
-c$$$      INTEGER n
-c$$$      REAL data1(n),data2(n)
-c$$$      COMPLEX fft1(n),fft2(n)
-c$$$C     USES four1
-c$$$C     Given two real input arrays data1(1:n) and data2(1:n), this routine calls four1 and
-c$$$C     returns two complex output arrays, fft1(1:n) and fft2(1:n), each of complex length n
-c$$$C     (i.e., real length 2*n), which contain the discrete Fourier transforms of the respective data
-c$$$C     arrays. n MUST be an integer power of 2.
-c$$$      INTEGER j,n2
-c$$$      COMPLEX h1,h2,c1,c2
-c$$$      c1=cmplx(0.5,0.0)
-c$$$      c2=cmplx(0.0,-0.5)
-c$$$      do j=1,n
-c$$$         fft1(j)=cmplx(data1(j),data2(j)) !Pack the two real arrays into one complex array.
-c$$$      end do                              
-c$$$      call four1(fft1,n,1)                !Transform the complex array.
-c$$$      fft2(1)=cmplx(aimag(fft1(1)),0.0)
-c$$$      fft1(1)=cmplx(real(fft1(1)),0.0)
-c$$$      n2=n+2
-c$$$      do j=2,n/2+1
-c$$$         h1=c1*(fft1(j)+conjg(fft1(n2-j))) !Use symmetries to separate the two trans
-c$$$         h2=c2*(fft1(j)-conjg(fft1(n2-j)))    !forms.
-c$$$         fft1(j)=h1                        !Ship them out in two complex arrays.
-c$$$         fft1(n2-j)=conjg(h1)
-c$$$         fft2(j)=h2
-c$$$         fft2(n2-j)=conjg(h2)
-c$$$      end do
-c$$$      return
-c$$$      END SUBROUTINE
-c$$$
-c$$$!======================================================================
-c$$$      SUBROUTINE realft(data,n,isign)
-c$$$!======================================================================
-c$$$      INTEGER isign,n
-c$$$      REAL data(n)
-c$$$C     USES four1
-c$$$C     Calculates the Fourier transform of a set of n real-valued data points. Replaces this data
-c$$$C     (which is stored in array data(1:n)) by the positive frequency half of its complex Fourier
-c$$$C     transform. The real-valued rst and last components of the complex transform are returned
-c$$$C     as elements data(1) and data(2), respectively. n must be a power of 2. This routine
-c$$$C     also calculates the inverse transform of a complex data array if it is the transform of real
-c$$$C     data. (Result in this case must be multiplied by 2/n.)
-c$$$      INTEGER i,i1,i2,i3,i4,n2p3
-c$$$      REAL c1,c2,h1i,h1r,h2i,h2r,wis,wrs
-c$$$      DOUBLE PRECISION theta,wi,wpi,wpr,wr,wtemp
-c$$$*     Double precision for the trigonometric recurrences.
-c$$$      theta=3.141592653589793d0/dble(n/2)! Initialize the recurrence.
-c$$$      c1=0.5
-c$$$      if (isign.eq.1) then
-c$$$         c2=-0.5
-c$$$         call four1(data,n/2,+1) !The forward transform is here.
-c$$$      else
-c$$$         c2=0.5 !Otherwise set up for an inverse transform.
-c$$$         theta=-theta
-c$$$      endif
-c$$$      wpr=-2.0d0*sin(0.5d0*theta)**2
-c$$$      wpi=sin(theta)
-c$$$      wr=1.0d0+wpr
-c$$$      wi=wpi
-c$$$      n2p3=n+3
-c$$$      do i=2,n/4 !Case i=1 done separately below.
-c$$$         i1=2*i-1
-c$$$         i2=i1+1
-c$$$         i3=n2p3-i2
-c$$$         i4=i3+1
-c$$$         wrs=sngl(wr)
-c$$$         wis=sngl(wi)
-c$$$         h1r=c1*(data(i1)+data(i3)) !The two separate transforms are separated out of data.
-c$$$         h1i=c1*(data(i2)-data(i4)) 
-c$$$         h2r=-c2*(data(i2)+data(i4))
-c$$$         h2i=c2*(data(i1)-data(i3))
-c$$$         data(i1)=h1r+wrs*h2r-wis*h2i !Here they are recombined to form the true trans
-c$$$         data(i2)=h1i+wrs*h2i+wis*h2r !form of the original real data.
-c$$$         data(i3)=h1r-wrs*h2r+wis*h2i
-c$$$         data(i4)=-h1i+wrs*h2i+wis*h2r
-c$$$         wtemp=wr !The recurrence.
-c$$$         wr=wr*wpr-wi*wpi+wr
-c$$$         wi=wi*wpr+wtemp*wpi+wi
-c$$$      end do
-c$$$      if (isign.eq.1) then
-c$$$         h1r=data(1)
-c$$$         data(1)=h1r+data(2)
-c$$$         data(2)=h1r-data(2) !Squeeze the rst and last data together to get
-c$$$                             ! them all else within the original array.
-c$$$         h1r=data(1)
-c$$$         data(1)=c1*(h1r+data(2))
-c$$$         data(2)=c1*(h1r-data(2))
-c$$$         call four1(data,n/2,-1) !This is the inverse transformfor the case isign=-1.
-c$$$      endif
-c$$$      return
-c$$$      END SUBROUTINE 
-c$$$!======================================================================
-c$$$      SUBROUTINE four1(data,nn,isign)
-c$$$!======================================================================
-c$$$      INTEGER isign,nn
-c$$$      REAL data(2*nn)
-c$$$C     Replaces data(1:2*nn) by its discrete Fourier transform, if isign is input as 1; or replaces
-c$$$C     data(1:2*nn) by nn times its inverse discrete Fourier transform, if isign is input as −1.
-c$$$C     data is a complex array of length nn or, equivalently, a real array of length 2*nn. nn
-c$$$C     MUST be an integer power of 2 (this is not checked for!).
-c$$$      INTEGER i,istep,j,m,mmax,n
-c$$$      REAL tempi,tempr
-c$$$      DOUBLE PRECISION theta,wi,wpi,wpr,wr,wtemp !Double precision for the trigonometn=
-c$$$                                                 !2*nn ric recurrences.
-c$$$      j=1
-c$$$      do i=1,n,2 !This is the bit-reversal section of the routine.
-c$$$         if(j.gt.i)then
-c$$$            tempr=data(j) !Exchange the two complex numbers.
-c$$$            tempi=data(j+1)
-c$$$            data(j)=data(i)
-c$$$            data(j+1)=data(i+1)
-c$$$            data(i)=tempr
-c$$$            data(i+1)=tempi
-c$$$         endif
-c$$$         m=n/2
-c$$$ 17      if ((m.ge.2).and.(j.gt.m)) then
-c$$$            j=j-m
-c$$$            m=m/2
-c$$$            goto 17
-c$$$         endif
-c$$$         j=j+m
-c$$$      end do
-c$$$      mmax=2 !Here begins the Danielson-Lanczos section of the routine.
-c$$$ 18   if (n.gt.mmax) then       !Outer loop executed log2 nn times.
-c$$$         istep=2*mmax
-c$$$         theta=6.28318530717959d0/(isign*mmax) !Initialize for the trigonometric recurrence.
-c$$$         wpr=-2.d0*sin(0.5d0*theta)**2
-c$$$         wpi=sin(theta)
-c$$$         wr=1.d0
-c$$$         wi=0.d0
-c$$$         do m=1,mmax,2 !Here are the two nested inner loops.
-c$$$            do i=m,n,istep
-c$$$               j=i+mmax !This is the Danielson-Lanczos formula:
-c$$$               tempr=sngl(wr)*data(j)-sngl(wi)*data(j+1)
-c$$$               tempi=sngl(wr)*data(j+1)+sngl(wi)*data(j)
-c$$$               data(j)=data(i)-tempr
-c$$$               data(j+1)=data(i+1)-tempi
-c$$$               data(i)=data(i)+tempr
-c$$$               data(i+1)=data(i+1)+tempi
-c$$$            end do
-c$$$            wtemp=wr !Trigonometric recurrence.
-c$$$            wr=wr*wpr-wi*wpi+wr
-c$$$            wi=wi*wpr+wtemp*wpi+wi
-c$$$         end do
-c$$$         mmax=istep
-c$$$         goto 18 !Not yet done.
-c$$$      endif !All done.
-c$$$      return
-c$$$      END SUBROUTINE
+!======================================================================
+      subroutine plotsp(view,log_wav,with_noise,descriptor,zqso,rmag,
+     :npix,loglam,lambda,noabs,plflux,flux,ncflux,nnflux,nmflux,mflux,
+     :npflux,noise)
+*     plot the spectrum in a Xwindow or a PS file
+!======================================================================
+      integer log_wav,view,with_noise,npix
+      real*8 zqso,rmag,z
+      real*8,dimension(npix) :: loglam,lambda,flux,ncflux,nnflux,nmflux
+      real*8,dimension(npix) :: mflux,noise,noabs,npflux
+      real*4,dimension(npix) :: plotx,ploty,plflux
+      real*4 xmin,xmax,ymin,ymax,loc
+*     LINELIST
+      real*8 colden,bpar,gasdev3
+      type list
+         SEQUENCE
+         character*2 atom
+         character*4 ion
+         real*8 colden
+         real*8 rdf
+         real*8 bpar
+      end type
+      type (list) :: llist(3000)
+      common /linelist/ llist
+      character :: string*10, descriptor*15, name*35
+
+      if (log_wav.eq.0) then
+         plotx=real(lambda)
+         xmin=minval(lambda)
+         xmax=maxval(lambda)
+      else if (log_wav.eq.1) then
+         plotx=real(loglam)
+         xmin=real(wstart)
+         xmax=3.8               !real(wend)
+      end if
+      if (with_noise.eq.0) then
+         ploty=real(nnflux)
+      else if (with_noise.eq.1) then
+         ploty=real(flux)
+      end if 
+      
+      
+      ymin=minval(ploty)
+      ymax=maxval(ploty)
+      ymax=ymax+0.1*abs(ymax)
+      ymin=ymin-0.2*abs(ymin)
+      
+*     (1) plot flux
+      name=trim('./plots/2_flux.ps')
+      if (view.eq.0) then
+         call PGBEGIN(0,name//'/cps',1,1)
+      else if (view.eq.1) then
+         call PGBEGIN(0,'/xserve',1,1)
+      end if   
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(2)
+c      call PGLINE(npix,plotx,real(nmflux))
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+*     (2) plot no-noise flux
+      ploty=real(nnflux)
+      name=trim('./plots/2_nnflux.ps')
+      call PGBEGIN(0,name//'/cps',1,1)
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(2)
+c      call PGLINE(npix,plotx,real(nmflux))
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+*     (3) plot uncolvolved flux
+      ploty=real(ncflux)
+      name=trim('./plots/2_ncflux.ps')
+      call PGBEGIN(0,name//'/cps',1,1)
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(2)
+c      call PGLINE(npix,plotx,real(nmflux))
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+*     (4) plot power-law
+      ploty=real(plflux)
+      name=trim('./plots/2_plflux.ps')
+      call PGBEGIN(0,name//'/cps',1,1)
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(2)
+c      call PGLINE(npix,plotx,real(nmflux))
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+*     (5) plot noabs
+      ploty=real(noabs)
+      name=trim('./plots/2_noabs.ps')
+      call PGBEGIN(0,name//'/cps',1,1)
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(2)
+c      call PGLINE(npix,plotx,real(nmflux))
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+*     (6) plot metals
+      ploty=real(mflux)
+      name=trim('./plots/2_metal.ps')
+      call PGBEGIN(0,name//'/cps',1,1)
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(2)
+c      call PGLINE(npix,plotx,real(nmflux))
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+
+*     (7) plot everything on a single page
+      name=trim('./plots/1_combined.ps')
+      call PGBEGIN(0,name//'/cps',1,3)
+      call PGSLW(2)
+      call PGENV(xmin,xmax,ymin,ymax,0,0)
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      call PGMTXT('t',1.5,0.5,0.5,'(a)')
+      ploty=real(plflux)
+      call PGLINE(npix,plotx,ploty)
+      call PGPANL(1,2)
+      call PGBOX('BCNTS',0.0,0,'BCNTS',0.0,0)
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      ploty=real(noabs)
+      call PGMTXT('t',1.5,0.5,0.5,'(b)')
+      call PGLINE(npix,plotx,ploty)
+      call PGPANL(1,3)
+      call PGBOX('BCNTS',0.0,0,'BCNTS',0.0,0)
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      call PGMTXT('t',1.5,0.5,0.5,'(c)')
+      ploty=real(mflux)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+
+      name=trim('./plots/combined_6.ps')
+      call PGBEGIN(0,name//'/cps',1,3)
+      call PGSLW(2)
+      call PGENV(xmin,xmax,ymin,ymax,0,0)
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      call PGMTXT('t',1.5,0.5,0.5,'(d)')
+      ploty=real(ncflux)
+      call PGLINE(npix,plotx,ploty)
+      call PGPANL(1,2)
+      call PGBOX('BCNTS',0.0,0,'BCNTS',0.0,0)
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      call PGMTXT('t',1.5,0.5,0.5,'(e)')
+      ploty=real(nnflux)
+      call PGLINE(npix,plotx,ploty)
+      call PGPANL(1,3)
+      call PGBOX('BCNTS',0.0,0,'BCNTS',0.0,0)
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      call PGMTXT('t',1.5,0.5,0.5,'(f)')
+      ploty=real(flux)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+*     (8) plot no-noise flux in X-window
+      ploty=real(nnflux)
+      call PGBEGIN(0,'/xserve',1,1)
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(2)
+      do i=1,3000
+         if (llist(i)%colden.gt.1e18)then
+            z=llist(i)%rdf
+            loc=real((z+1))*1215.67
+            call pgmove(loc,0.97*ymax); call pgdraw(loc,0.9*ymax)
+         end if
+      end do
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+*     (9) plot the zoom in of the proximity effect 
+      ploty=real(nmflux)
+      xmin = 1215.67*(1+0.90*real(zqso))
+      xmax = 1215.67*(1+1.05*real(zqso))
+      name=trim('./plots/zoom_pe.ps')
+      call PGBEGIN(0,name//'/cps',1,1)
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND
+
+*     (10) plot the zoom in with no proximity effect
+      ploty=real(npflux)
+      name=trim('./plots/zoom_npe.ps')
+      call PGBEGIN(0,name//'/cps',1,1)
+      call PGSLW(3)
+      call PGENV(xmin,xmax,ymin,ymax,0,0,1)
+      if (log_wav.eq.1) then
+      call PGLABEL('log \gl','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','')
+      else 
+      call PGLAB('\gl [\A]','F\d\gl\u [10\u-17\d erg/s/cm\u2\d/\A]','') 
+      end if
+      call PGMTXT('T',1.0,0.5,0.5,descriptor)
+      write(string,'(f5.2)') rmag
+      call PGMTXT('T',1.0,1.0,1.0,'r='//trim(string))
+      write(string,'(f8.6)') zqso
+      call PGMTXT('T',1.0,0.0,0.0,'z='//trim(string))
+      call PGSLW(3)
+      call PGSCI(2)
+      call PGSCI(1)
+      call PGLINE(npix,plotx,ploty)
+      call PGEND      
+
+
+
+      return
+      end subroutine plotsp
+!======================================================================
+      function throughput(wav)
+!======================================================================
+      real*8 wav,throughput,f
+      integer,parameter :: m=4
+      real*8 c(m),mu(m),sig(m)
+
+      data c/0.247670970667,0.25436483658,0.176176984517,-0.14316777838/
+      data mu/5002.72401967,7108.43270986,8897.07074493,7566.1928085/
+      data sig/722.981333002,897.918049886,727.955532937,22.3997766177/
+
+      f=0.0; throughput=0.0
+      do i=1,10
+         f=c(i)*exp(-(wav-mu(i))**2/(2*sig(i)**2))
+         throughput=throughput+f
+      end do
+      return
+      end function throughput
+!======================================================================
+      subroutine fmetals(x,y,z,ind)
+*     locate a point in parametric space (Z,NHI,z) that is closest in 
+*     value to the input and return the index of the line in the dtbase
+!======================================================================
+      integer i,j,k,xmin,ymin,zmin,ind
+*     values: x = metallicity, y = log NHI, z = redshift
+      real*8 :: x,y,z
+      real*8,dimension(20000) :: xbuf,ybuf,zbuf,xdist,ydist,zdist,rad
+      real*8 xval,yval,zval
+
+      common/parspace/xbuf,ybuf,zbuf
+
+      xdist=(x-xbuf)**2
+      ydist=(y-ybuf)**2
+      zdist=(z-zbuf)**2
+      rad=xdist+ydist+zdist
+      ind=minloc(rad,dim=1)
+      xmin=minloc(xdist,dim=1)
+      ymin=minloc(ydist,dim=1)
+      zmin=minloc(zdist,dim=1)
+      xval=xbuf(xmin)
+      yval=ybuf(ymin)
+      zval=zbuf(zmin)
+      
+      return
+      end subroutine fmetals
+      
+!======================================================================
+      subroutine addsys(j,nhi,z,bvel)
+!======================================================================
+      integer i,j,idum,ind
+*     INPUTS
+      real*8 :: nhi,z,bvel
+*     METALS
+      real*8,dimension(30,20000) :: H,He,Li,Be,B,C,N,O,F,Ne,Na,Mg,Al,Si,
+     :                      P,S,Cl,Ar,K,Ca,Sc,Ti,Va,Cr,Mn,Fe,Co,Ni,Cu,Zn
+      common/metals/H,He,Li,Be,B,C,N,O,F,Ne,Na,Mg,Al,Si,
+     :                      P,S,Cl,Ar,K,Ca,Sc,Ti,Va,Cr,Mn,Fe,Co,Ni,Cu,Zn
+*     LINELIST
+      real*8 colden,bpar,gasdev3
+      type list
+         SEQUENCE
+         character*2 atom
+         character*4 ion
+         real*8 colden
+         real*8 rdf
+         real*8 bpar
+      end type
+      type (list) :: llist(3000)
+      common /linelist/ llist
+*     LOCAL VARIABLES
+      real*8 d,t,m,rdf,lognhi
+      character atom*2,ion*4
+      external gasdev3
+
+      idum=time()
+*     HI line parameters
+      colden=nhi
+      bpar=bvel
+      rdf=z
+      llist(j)=list('H ','I   ',colden,rdf,bpar)
+*     if log NHI > 17, input metal lines as well
+      if (nhi.ge.(1e17)) then
+         s=gasdev3(idum); t=gasdev3(idum)
+         m = -(0.22+0.03*d)*z - (0.65+0.09*t)
+*        find the closest metal point in the database
+         lognhi=alog10(real(nhi))
+         call fmetals(m,lognhi,z,ind)
+*        C:
+         atom = 'C '
+           j=j+1; ion='I   '; colden=C(1,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='II  '; colden=C(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='III '; colden=C(3,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='IV  '; colden=C(4,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'N '
+           j=j+1; ion='I   '; colden=N(1,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='II  '; colden=N(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='III '; colden=N(3,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='V   '; colden=N(4,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'O'
+           j=j+1; ion='I   '; colden=O(1,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='VI  '; colden=O(6,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'Mg'
+           j=j+1; ion='I   ';colden=Mg(1,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='II  ';colden=Mg(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'Al'
+           j=j+1; ion='II  ';colden=Al(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='III ';colden=Al(3,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'Si'
+           j=j+1; ion='II  ';colden=Si(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='III ';colden=Si(3,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='IV  ';colden=Si(4,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'Cr'
+           j=j+1; ion='II  ';colden=Cr(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'Mn'
+           j=j+1; ion='II  ';colden=Mn(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'Fe'
+           j=j+1; ion='II  ';colden=Fe(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+           j=j+1; ion='III ';colden=Fe(3,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'Ni'
+           j=j+1; ion='II  ';colden=Ni(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+         atom = 'Zn'
+           j=j+1; ion='II  ';colden=Zn(2,ind);bpar=1.5*gasdev3(idum)+6.3
+           llist(j)=list(atom,ion,colden,rdf,bpar)
+      end if
+      return
+      end subroutine addsys
+!======================================================================
+      subroutine rwllist(d)
+*     delete the line list (remove artefacts)
+!======================================================================
+      integer d
+      type list
+         SEQUENCE
+         character*2 atom
+         character*4 ion
+         real*8 colden
+         real*8 rdf
+         real*8 bpar
+      end type
+      type (list) :: llist(3000)
+      common /linelist/ llist
+      
+      if (d.eq.0) then
+         do i=1,3000
+            llist%atom = '  '
+            llist%ion = '    '
+            llist%colden = 0.0
+            llist%rdf = 0.0
+            llist%bpar = 0.0
+         end do
+      else 
+         write(6,*) 'WARNING: Line list was not reset!'
+         write(6,*) 'WARNING: Possible artefacts'
+      end if
+      return
+      end subroutine rwllist
+!======================================================================

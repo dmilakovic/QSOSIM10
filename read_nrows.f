@@ -39,9 +39,9 @@ c Open fits file to read
       call chdir(home)
       call ftopen(unit,infile,readwrite,blocksize,status)
       call ftgerr(status,errtext)
-      if (status.eq.0) then 
-         write (*,*)status,'File '//infile//' opened'
-      end if
+c      if (status.eq.0) then 
+c         write (*,*)status,'File '//infile//' opened'
+c      end if
 c------------------------------------------------------------------------------
 c Read contents of 'NoName' (ntable=2) binary table
 c Read data from columns
@@ -51,19 +51,19 @@ c Read data from columns
  100  format(2x,a10,d9.3,a4)
  125  format(2x,a10,f9.3,a4)
  150  format(2x,a10,i3)
-      write (6,*) 'Number of objects :',nrs
+c      write (6,*) 'Number of objects :',nrs
 
 cc------------------------------------------------------------------------------
 cc Close fits file
       call ftclos(unit,status)
       call ftfiou(unit,status)
       if (status.eq.0)then 
-         print *,status,' File closed'
+         return
       else 
          call FTGERR(status, errtext)
          print *,status,' ',errtext
       end if
 c------------------------------------------------------------------------------
-      RETURN
+      stop
       END SUBROUTINE read_nrows
 c------------------------------------------------------------------------------

@@ -16,7 +16,8 @@
 *
 *      include 'vp_sizes.f'
 *     Wavelength scale need not be linear
-      real flx(npts),wav(npts), expf
+      real expf
+      double precision flx(npts),wav(npts)
       double precision col,z,b, contin(npts)
 *     
 *     LOCAL variables
@@ -90,7 +91,11 @@
       end if
       zdp1=1.0d0+z
 *	set up parameters
-      nexpd=5
+      if (atom.eq.'H ') then
+         nexpd=5
+      else 
+         nexpd=50
+      end if
 *
       do i=1,npts
 *	    rfc 24.2.95: replace by unit continuum and multiply later,
@@ -186,11 +191,11 @@ c                     write (6,*) 'jstep,j,jmid',jstep,j,jmid,' goto 901'
                end if
            
 *               high and low wavelength points (interpolate linearly)
-               if (wav(j-1).ne.wav(j-1)) then
-                 write (6,*) 'wav(j-1) is NaN',wav(j-1)
-                 write (6,*) 'j,jmid',j,jmid
-                  stop
-               end if
+c               if (wav(j-1).ne.wav(j-1)) then
+c                 write (6,*) 'wav(j-1) is NaN',wav(j-1)
+c                 write (6,*) 'j,jmid',j,jmid
+c                  stop
+c               end if
                wlod=(dble(wav(j))+dble(wav(j-1)))/2.0 * 1.0d-8/zdp1
                whid=(dble(wav(j))+dble(wav(j+1)))/2.0 * 1.0d-8/zdp1
 *               sub-divide

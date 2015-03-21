@@ -1,6 +1,6 @@
 !=======================================================================
       subroutine power_laws(npts,zstart,zqso,xs,ys,CDDF,
-     +                      bigA,gamma,nl,ni)
+     +                      bigA,gamma,nl)
 !=======================================================================
 * PURPOSE: use data from Kim et al. 2013 & Unknown to predict the number
 *          of H I absorption systems in three log N(HI) bins. Return the
@@ -133,8 +133,7 @@ C     corr - correction factor
       z2=zqso
       z2p1=zqso+1.
 c      beta=abs((ys(index14)-ys(index12))/(xs(index14)-xs(index12)))
-      write (6,*) 'Numerical correction factor=',corr
-      write (6,'(1x,a9,f6.4,3x,a7,f6.4)') 'z_start =',z1,'z_qso =',z2
+c      write (6,*) 'Numerical correction factor=',corr
 ! -------------------------------------------------------------------
 *     Predict the number of lines in three bins: 
 *     n(bin) = integral( A(bin) * (1+z)*gamma(bin) ) in limits bin_down, bin_up
@@ -156,10 +155,10 @@ c      write (6,*) 'A (numerical) =',corr*bigA(1)/(gamma(1)+1.)
 c      write (6,*) 'gamma = ',gamma(1)
 c      write (6,*) 'z1 =',z1
 c      write (6,*) 'z2 =',z2
-      write (6,*) 'n [12.00->14.00] (predicted) =',nint(n(1))
-      write (6,*) 'n [14.00->17.00] (predicted) =',nint(n(2))
-      write (6,*) 'n [17.00->22.00] (predicted) =',nint(n(3))
-      write (6,*) 'Total number of lines (predicted) =', nl 
+c      write (6,*) 'n [12.00->14.00] (predicted) =',nint(n(1))
+c      write (6,*) 'n [14.00->17.00] (predicted) =',nint(n(2))
+c      write (6,*) 'n [17.00->22.00] (predicted) =',nint(n(3))
+c      write (6,*) 'Total number of lines (predicted) =', nl 
 ! -------------------------------------------------------------------
 *     The predicted number of lines is normally distributed variable with
 *     a mean=nl and sigma=sqrt(nl).
@@ -167,7 +166,7 @@ c      write (6,*) 'z2 =',z2
 *     of lines that will be returned into the main program.
       idum=time()
       nl=nl+sqrt(real(nl))*gasdev3(idum)
-      write (6,*) 'Total number of lines (assigned) =', nl 
+      write (6,*) 'Total number of H I lines =', nl 
       return
       end subroutine power_laws
 

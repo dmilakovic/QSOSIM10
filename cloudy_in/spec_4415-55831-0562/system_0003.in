@@ -1,0 +1,11 @@
+c Lyman alpha system                                                  
+cmb z=3.083                                                           
+table hm05 z=3.083                                                    
+hden -2                                                               
+metals -1.32                                                          
+stop neutral column density 18.94                                     
+double                                                                
+iterate to convergence                                                
+print line faint -1                                                   
+save overview last "system_0003.ovr"                                  
+save results last "system_0003.rlt"                                   

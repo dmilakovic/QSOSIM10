@@ -10,14 +10,13 @@ FC= gfortran
 all: q1 q9
 
 obj1=	spline.f qsosim.f read_nrows.f SDSS_readfits.f readfits.f power_laws.f assign.f \
-		qsosim10.f write_cloudy_input.f cloudy.f read_cloudy_output.f
+		qsosim10.f metal_db.f
 obj2=	dsepvar.o ewred.o spvoigt.o voigt.o vp_lycont.o f13_read.o read_nrows.f \
 		SDSS_readfits.o readfits.o qsosim.o writefits.o spline.o  \
-		power_laws.o assign.o write_cloudy_input.o cloudy.o read_cloudy_output.o
+		power_laws.o assign.o metal_db.o
 
 #  Macbook Pro version
-q1: qsosim10.f spline.f qsosim.f power_laws.f assign.f \
-		write_cloudy_input.f cloudy.f read_cloudy_output.f
+q1: qsosim10.f $(obj1)
 	$(LINK.f) -c $(obj1)
 q9: qsosim10.o $(obj2)
 	$(LINK.f) -o qsosim10 qsosim10.o $(obj2) \
