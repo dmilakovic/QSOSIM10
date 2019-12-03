@@ -4,7 +4,7 @@
 *	include 'vp_sizes.f'
 	double precision cold,zdp1
         integer i,na,nb,nlast,nlp,nup,nw
-	real flx(nw), wav(nw)
+	double precision flx(nw), wav(nw), auxflx(nw)
 *
 	
 	double precision fxx,fxy,temp1,temp2,tzero,x
@@ -18,8 +18,9 @@
 c
 c	subroutine to take care of Lyman limit absorption
 c
-	write(6,*) ' Lyman limit abs included', cold, zdp1-1D0
+c	write(6,*) ' Lyman limit abs included', cold, zdp1-1D0
 
+        auxflx=flx
 *	copy coeffts to single array
 *	call vp_cfcopy(ichunk,1)
 *	wavelengths in observers frame
@@ -109,5 +110,6 @@ c	  linearly interpolate in wavelength from nup to nlast
 	    flx(i)=real(fxx*temp1+fxy*temp2)
 	  end do
 	end if
+        
 	return
 	end

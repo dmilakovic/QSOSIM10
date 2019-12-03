@@ -110,16 +110,17 @@ c      write (6,*) 'n1,n2,n3,t',n1,n2,n3,t
 *     (dm: 2015/01/20 - behaving as expected, commenting out)
 *     (dm: 2015/01/31 - included the no-proximity effect CDF (npCDF), for testing and comparison)
 
-      write(lbl,'(i6)') nint(zqso*1e5)
+*     plot clustering of lines (presentation purposes)
+c      write(lbl,'(i6)') nint(zqso*1e5)
 c      write(6,*) lbl
-      name='./plots/pres_CDF_clus.ps'
+c      name='./plots/pres_CDF_clus.ps'
 c      call pgbegin(0,'/null',1,1)
-      call pgbegin(0,name//'/cps',1,1)
-      call pgslw(3)
-      call pgenv(real(zstart),real(zqso),0.0,1.15,0,0)
+c      call pgbegin(0,name//'/cps',1,1)
+c      call pgslw(3)
+c      call pgenv(real(zstart),real(zqso),0.0,1.15,0,0)
 c      call pgenv(real(zstart),1.1*real(zstart),0.0,0.1,0,0)
-      call pglabel('\fiz','CDF','')
-      call pgpt(nl,real(nhi4),real(z4),-2)
+c      call pglabel('\fiz','CDF','')
+c      call pgpt(nl,real(nhi4),real(z4),-2)
 c      do i=1,npts
 c         gp1=gamma(1)+1.
 c         p=(zstart+1.)**gp1
@@ -128,14 +129,14 @@ c         npncCDF(i)=((zx(i)+1)**gp1-p)/(q-p)
 c      end do
 c      call pgslw(5); call pgsls(3)
 c      call pgline(npts,real(zx),real(npncCDF))
-      call pgslw(3); call pgsls(1)
-      call pgline(npts,real(zx),real(CDF1)) 
-      call pgmove(3.8,0.26); call pgdraw(3.95,0.26); call pgsci(2)
-      call pgline(npts,real(zx),real(CDF2))
-      call pgmove(3.80,0.17); call pgdraw(3.95,0.17); call pgsci(3)
-      call pgline(npts,real(zx),real(CDF3));
-      call pgmove(3.80,0.08); call pgdraw(3.95,0.08); call pgsci(2)
-      call pgslw(1)
+c      call pgslw(3); call pgsls(1)
+c      call pgline(npts,real(zx),real(CDF1)) 
+c      call pgmove(3.8,0.26); call pgdraw(3.95,0.26); call pgsci(2)
+c      call pgline(npts,real(zx),real(CDF2))
+c      call pgmove(3.80,0.17); call pgdraw(3.95,0.17); call pgsci(3)
+c      call pgline(npts,real(zx),real(CDF3));
+c      call pgmove(3.80,0.08); call pgdraw(3.95,0.08); call pgsci(2)
+c      call pgslw(1)
 c      do i=1,nl
 c         call PGMOVE(real(z4(i)),1.13)
 c         call PGDRAW(real(z4(i)),1.08)
@@ -145,16 +146,16 @@ c      do i=1,nl
 c         call PGMOVE(real(znc4(i)),1.06)
 c         call PGDRAW(real(znc4(i)),1.01)
 c      end do
-      call pgslw(3)
-      call pgsci(1); call pgsls(4)
-      call pgline(npts,real(zx),real(ncCDF1)); call pgsci(2)
-      call pgline(npts,real(zx),real(ncCDF2)); call pgsci(3)
-      call pgline(npts,real(zx),real(ncCDF3)); call pgsci(1)
+c      call pgslw(3)
+c      call pgsci(1); call pgsls(4)
+c      call pgline(npts,real(zx),real(ncCDF1)); call pgsci(2)
+c      call pgline(npts,real(zx),real(ncCDF2)); call pgsci(3)
+c      call pgline(npts,real(zx),real(ncCDF3)); call pgsci(1)
 c      
 c      call pgslw(3); call pgsls(1)
-      call pgmtxt('b',-7.,.8,0.,'10\u12\d\(2243)N\dHI\u<10\u14\d')
-      call pgmtxt('b',-4.5,.8,0.,'10\u14\d\(2243)N\dHI\u<10\u17\d')
-      call pgmtxt('b',-2.,.8,0.,'10\u17\d\(2243)N\dHI\u\(2243)10\u22\d')
+c      call pgmtxt('b',-7.,.8,0.,'10\u12\d\(2243)N\dHI\u<10\u14\d')
+c      call pgmtxt('b',-4.5,.8,0.,'10\u14\d\(2243)N\dHI\u<10\u17\d')
+c      call pgmtxt('b',-2.,.8,0.,'10\u17\d\(2243)N\dHI\u\(2243)10\u22\d')
 c      call pgmtxt('b',-12.4,0.6,0.0,'Clustering only')
 c      call pgend
 c
@@ -168,17 +169,18 @@ c      end do
 c      call pgenv(minval(omegas),maxval(omegas),0.0,2.0,0,0)
 c      call pgsci(2)
 c      call pgline(npts,omegas,dndxy)
-      call pgend
+c      call pgend
 c      read(*,'(a)')a
 
-      name='./plots/pres_CDF_lines.ps'
+*     plot the cumulative distribution function (presentation purposes)
+c      name='./plots/pres_CDF_lines.ps'
 c      call pgbegin(0,'/null',1,1)
-      call pgbegin(0,name//'/cps',1,1)
-      call pgslw(3)
-      call pgenv(real(zstart),real(zqso),0.0,1.15,0,0)
+c      call pgbegin(0,name//'/cps',1,1)
+c      call pgslw(3)
+c      call pgenv(real(zstart),real(zqso),0.0,1.15,0,0)
 c      call pgenv(real(zstart),1.1*real(zstart),0.0,0.1,0,0)
-      call pglabel('\fiz','CDF','')
-      call pgpt(nl,real(nhi4),real(z4),-2)
+c      call pglabel('\fiz','CDF','')
+c      call pgpt(nl,real(nhi4),real(z4),-2)
 c      do i=1,npts
 c         gp1=gamma(1)+1.
 c         p=(zstart+1.)**gp1
@@ -187,33 +189,33 @@ c         npncCDF(i)=((zx(i)+1)**gp1-p)/(q-p)
 c      end do
 c      call pgslw(5); call pgsls(3)
 c      call pgline(npts,real(zx),real(npncCDF))
-      call pgslw(3); call pgsls(1)
-      call pgline(npts,real(zx),real(CDF1)) 
-      call pgmove(3.8,0.26); call pgdraw(3.95,0.26); call pgsci(2)
-      call pgline(npts,real(zx),real(CDF2))
-      call pgmove(3.80,0.17); call pgdraw(3.95,0.17); call pgsci(3)
-      call pgline(npts,real(zx),real(CDF3));
-      call pgmove(3.80,0.08); call pgdraw(3.95,0.08); call pgsci(2)
-      call pgslw(1)
-      do i=1,nl
-         call PGMOVE(real(z4(i)),1.13)
-         call PGDRAW(real(z4(i)),1.08)
-      end do
-      call pgsci(4)
-      do i=1,nl
-         call PGMOVE(real(znc4(i)),1.06)
-         call PGDRAW(real(znc4(i)),1.01)
-      end do
-      call pgslw(3)
-      call pgsci(1); call pgsls(4)
-      call pgline(npts,real(zx),real(ncCDF1)); call pgsci(2)
-      call pgline(npts,real(zx),real(ncCDF2)); call pgsci(3)
-      call pgline(npts,real(zx),real(ncCDF3)); call pgsci(1)
+c      call pgslw(3); call pgsls(1)
+c      call pgline(npts,real(zx),real(CDF1)) 
+c      call pgmove(3.8,0.26); call pgdraw(3.95,0.26); call pgsci(2)
+c      call pgline(npts,real(zx),real(CDF2))
+c      call pgmove(3.80,0.17); call pgdraw(3.95,0.17); call pgsci(3)
+c      call pgline(npts,real(zx),real(CDF3));
+c      call pgmove(3.80,0.08); call pgdraw(3.95,0.08); call pgsci(2)
+c      call pgslw(1)
+c      do i=1,nl
+c         call PGMOVE(real(z4(i)),1.13)
+c         call PGDRAW(real(z4(i)),1.08)
+c      end do
+c      call pgsci(4)
+c      do i=1,nl
+c         call PGMOVE(real(znc4(i)),1.06)
+c         call PGDRAW(real(znc4(i)),1.01)
+c      end do
+c      call pgslw(3)
+c      call pgsci(1); call pgsls(4)
+c      call pgline(npts,real(zx),real(ncCDF1)); call pgsci(2)
+c      call pgline(npts,real(zx),real(ncCDF2)); call pgsci(3)
+c      call pgline(npts,real(zx),real(ncCDF3)); call pgsci(1)
 c      
 c      call pgslw(3); call pgsls(1)
-      call pgmtxt('b',-7.,.8,0.,'10\u12\d\(2243)N\dHI\u<10\u14\d')
-      call pgmtxt('b',-4.5,.8,0.,'10\u14\d\(2243)N\dHI\u<10\u17\d')
-      call pgmtxt('b',-2.,.8,0.,'10\u17\d\(2243)N\dHI\u\(2243)10\u22\d')
+c      call pgmtxt('b',-7.,.8,0.,'10\u12\d\(2243)N\dHI\u<10\u14\d')
+c      call pgmtxt('b',-4.5,.8,0.,'10\u14\d\(2243)N\dHI\u<10\u17\d')
+c      call pgmtxt('b',-2.,.8,0.,'10\u17\d\(2243)N\dHI\u\(2243)10\u22\d')
 c      call pgmtxt('b',-12.4,0.6,0.0,'Clustering only')
 c      call pgend
 c
@@ -227,26 +229,27 @@ c      end do
 c      call pgenv(minval(omegas),maxval(omegas),0.0,2.0,0,0)
 c      call pgsci(2)
 c      call pgline(npts,omegas,dndxy)
-      call pgend
+c      call pgend
 c
-      write(lbl,'(i6)') nint(zqso*1e5)
-      write(6,*) lbl
-      name='./plots/omega_z_'//lbl//'.ps'
+*     plot omega for the proximity effect
+c      write(lbl,'(i6)') nint(zqso*1e5)
+c      write(6,*) lbl
+c      name='./plots/omega_z_'//lbl//'.ps'
 c      call pgbegin(0,'/xserve',1,1)
-      call pgbegin(0,name//'/cps',1,1)
-      call pgslw(3)
-      call pgenv(0.90*real(zqso),1.05*real(zqso),0.0,1.1,0,0)
-      call pglabel('\fiz','\fn(1+\gw)\u-1\d','')
-      call pgsci(2); call pgsls(4); call pgslw(5)
-      call pgmove(real(zqso),0.0); call pgdraw(real(zqso),1.1)
-      call pgsci(1); call pgsls(1); call pgslw(3)
-      do i=1,npts
-         plotx(i)=real(zx(i))
-         ploty(i)=real((1.+omega(zx(i)))**(-1.0))
-      end do
-      call PGLINE(npts,plotx,ploty)
-      call PGTEXT(real(zqso-0.005),1.13,'\fiz\dQSO\u')
-      call PGEND
+c      call pgbegin(0,name//'/cps',1,1)
+c      call pgslw(3)
+c      call pgenv(0.90*real(zqso),1.05*real(zqso),0.0,1.1,0,0)
+c      call pglabel('\fiz','\fn(1+\gw)\u-1\d','')
+c      call pgsci(2); call pgsls(4); call pgslw(5)
+c      call pgmove(real(zqso),0.0); call pgdraw(real(zqso),1.1)
+c      call pgsci(1); call pgsls(1); call pgslw(3)
+c      do i=1,npts
+c         plotx(i)=real(zx(i))
+c         ploty(i)=real((1.+omega(zx(i)))**(-1.0))
+c      end do
+c      call PGLINE(npts,plotx,ploty)
+c      call PGTEXT(real(zqso-0.005),1.13,'\fiz\dQSO\u')
+c      call PGEND
 *     print out a line list
 c      write(6,*) '---------- L I N E     L I S T ----------'
 c      do i=1,nl

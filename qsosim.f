@@ -51,7 +51,7 @@
          real*8 rdf
          real*8 bpar
       end type
-      type (linelist) :: llist(3000)
+      type (linelist) :: llist(5000)
       type (linelist),allocatable :: line(:)
       common /linelist/llist
       real*8 colden
@@ -155,15 +155,9 @@
          bpar = 5*gasdev3(idum)+22
          call addsys(j,nhi,z,bpar)
       end do
-*     add a custom LLS
-c      call addsys(j+1,1d22,2.4d0,24.48d0)
-c      call addsys(j+2,8.76d20,2.387d0,22.3d0)
-c      call addsys(j+3,2.16d21,2.407d0,20.67d0)
-c      call addsys(j+4,0.16d21,2.3817d0,21.33d0)
+
 *     total number of lines = nlin
-      nlin=j!+4
-*     count the number of systems with metals
-      write(6,*) 'Metal absorption input '
+      nlin=j
 *     save the line list into a new array that will be output and saved
       allocate(line(nlin))
       do i=1,nlin
@@ -180,7 +174,6 @@ c      call addsys(j+4,0.16d21,2.3817d0,21.33d0)
          z=llist(i)%rdf
          bpar=llist(i)%bpar
          call spvoigt(flux,lambda,npix,colden,z,bpar,atom,ion)
-         if (colden.ge.1d19) write(6,*) i,colden,z,bpar
          if (atom.eq.'H '.and.ion.eq.'I   ') then
 *           create spectrum with no metal absorption
             call spvoigt(nmflux,lambda,npix,colden,z,bpar,atom,ion)
@@ -200,7 +193,9 @@ c      call addsys(j+4,0.16d21,2.3817d0,21.33d0)
             bpar=llist(i)%bpar
          end if
          colden=npnhi4(j)
-         call spvoigt(npflux,lambda,npix,colden,z,bpar,'H ','I   ')
+         
+c         call spvoigt(npflux,lambda,npix,colden,z,bpar,'H ','I   ')
+         
       end do
 * ----------------------------------------------------------------------
 * save uncolvolved flux real*8
@@ -210,7 +205,7 @@ c      call addsys(j+4,0.16d21,2.3817d0,21.33d0)
 *             I N S T R U M E N T A L    B L U R R I N G
 * ----------------------------------------------------------------------
 * BOSS resolution R~2000, sigma_v=vlight/(2.35*R)=64 km/s
-* using log10(sigma_v) since the wavelength scale is log
+* using log10(sigma_v) since the wavelength scale is log                           
       call blur(flux,npix,dble(alog10(64.0)))                             
 c      call blur(npflux,npix,dble(alog10(64.0)))  
 c      call blur(mflux,npix,dble(alog10(64.0)))
@@ -246,20 +241,17 @@ c     +     -0.19*exp(-.5*(((lambda-7550.0)/20)**2))
             gain(i)=1.70+0.07*gasdev3(idum)                                  !e-/ADU
          end if
       end do
-      ronsq=(2.25+0.2*gasdev3(idum))**2 ! read-out**2 noise (e-) (per read-out!, interval = 55sec)
-      ns=sqrt(signal+sky+(dark*t)*numpix+ronsq*(t/55))
-      ns=ns*en/qe/(t*pix*area)
-      ivar=1/ns**2
+      ronsq=(2.25+0.2*gasdev3(idum))**2                                   ! read-out**2 noise (e-) (per read-out!, interval = 55sec)
+      ns=sqrt(signal+sky+(dark*t)*numpix+ronsq*(t/55))                    ! standard deviation of noise in e-
+      ns=ns*en/qe/(t*pix*area)                                            ! standard deviation of noise in units of flux
+      ivar=1/ns**2                                                        ! inverse variance of noise (units flux)
       do i=1,npix
          d = gasdev3(idum)
-c         ns(i)=sqrt(signal(i)+sky(i)+(dark(i)*t)*numpix+ronsq*(t/55)) ! total noise in e-
          noise(i)=d*ns(i) ! noise in erg s-1 cm-1 A-1
       end do
       flux = nnflux+noise
       snr=abs(nnflux/noise)
-c      do i=1,npix
-c         write(6,'(6f12.3)')nnflux(i),noise(i),snr(i)
-c      end do
+
 * ----------------------------------------------------------------------
 *               P L O T T I N G    T H E    S P E C T R U M
 * ----------------------------------------------------------------------
@@ -272,38 +264,17 @@ c     PLOT
 *                =0 : flux with no noise
 *     with_conv  =1 : convolved flux 
 *                =0 : uncolvolved flux         
-      view=1
+      view=0
       log_wav=0
       with_noise=1
       with_conv=0
 
-      call plotsp(view,log_wav,with_noise,descriptor,zqso,rmag,npix,
-     :loglam,lambda,noabs,plflux,flux,ncflux,nnflux,nmflux,mflux,npflux,
-     :noise)
-      write(6,*) 'Spectrum plotted in a PS file'
-      deltaz=z4-znc4
-      ymax=maxval(deltaz)
-      plotx=0.0
-      do i=1,nhil
-         plotx(i)=i
-      end do
-      ploty=real(deltaz)
-      name=trim('./plots/clus-noclust_example.ps')
-      if (view.eq.0) then
-         call PGBEGIN(0,name//'/cps',1,1)
-      else if (view.eq.1) then
-         call PGBEGIN(0,'/null',1,1)
-      end if
-      call PGSLW(3)
-      call PGENV(0.0,real(nhil+1),-0.20,0.20,0,0,1)
-      call PGLABEL('Line #','\gDz = z\dclust.\u-z\dno clust.\u',
-     : 'Distribution of \gDz')
-      call PGPT(nhil,plotx,ploty,5)
-      call PGHIST(nhil,ploty,-0.10,0.30,20,0)
-      write(string,'(i5)') nhil
-      call PGMTXT('t',-1.5,0.75,0.0,'Total # lines='//string)
-      call PGLABEL('\gD z','#','')
-      call PGEND
+c      call plotsp(view,log_wav,with_noise,descriptor,zqso,rmag,npix,
+c     :loglam,lambda,noabs,plflux,flux,ncflux,nnflux,nmflux,mflux,npflux,
+c     :noise)
+c      write(6,*) 'Spectrum plotted in a PS file'
+
+
       return
       end subroutine qsosim
 
@@ -394,8 +365,8 @@ c BLUR does Gaussian blurring on array xbuf
         real*8,dimension(:),allocatable :: work, ybuf
 	real*8 xmns, xmnf, sigma, const, norm
 
-	nfilt=int(10.0*sigma)+1
-	if(nfilt.gt.811)stop ' too large a filter'
+	nfilt=int(50.0*sigma)+1
+	if(nfilt.gt.1011)stop ' too large a filter'
 	if(npt.gt.262144)stop ' too many points in data array'
         allocate(work(nfilt))
 	if((nfilt/2)*2.eq.nfilt)nfilt=nfilt+1
@@ -463,7 +434,7 @@ c *** do blurring
          real*8 rdf
          real*8 bpar
       end type
-      type (list) :: llist(3000)
+      type (list) :: llist(5000)
       common /linelist/ llist
       character :: string*10, descriptor*15, name*35
 
@@ -677,7 +648,7 @@ c      call PGLINE(npix,plotx,real(nmflux))
       call PGEND
 
 *     (8) plot no-noise flux in X-window
-      ploty=real(nnflux)
+      ploty=real(flux)
       call PGBEGIN(0,'/xserve',1,1)
       call PGSLW(3)
       call PGENV(xmin,xmax,ymin,ymax,0,0,1)
@@ -694,10 +665,15 @@ c      call PGLINE(npix,plotx,real(nmflux))
       call PGSLW(3)
       call PGSCI(2)
       do i=1,3000
-         if (llist(i)%colden.gt.1e18)then
+         colden=llist(i)%colden
+         if (colden.gt.1d18)then
             z=llist(i)%rdf
+            loc=real((z+1))*912.0
+            call pgsci(2)
+            call pgmove(loc,0.95*ymax); call pgdraw(loc,0.0)
             loc=real((z+1))*1215.67
-            call pgmove(loc,0.97*ymax); call pgdraw(loc,0.9*ymax)
+            call pgsci(3)
+            call pgmove(loc,0.95*ymax); call pgdraw(loc,0.0)
          end if
       end do
       call PGSCI(1)
@@ -820,7 +796,7 @@ c      call PGLINE(npix,plotx,real(nmflux))
          real*8 rdf
          real*8 bpar
       end type
-      type (list) :: llist(3000)
+      type (list) :: llist(5000)
       common /linelist/ llist
 *     LOCAL VARIABLES
       real*8 d,t,m,rdf,lognhi
@@ -914,7 +890,7 @@ c      call PGLINE(npix,plotx,real(nmflux))
          real*8 rdf
          real*8 bpar
       end type
-      type (list) :: llist(3000)
+      type (list) :: llist(5000)
       common /linelist/ llist
       
       if (d.eq.0) then

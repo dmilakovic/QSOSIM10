@@ -11,15 +11,14 @@ c  OUTPUT:  artificial SDSS catalogue
 *     nrows   - number of QSOs in the input file
 *     nn      - number of QSOs to analyse the line distribution
 *     dim     - number of points in the metal database
-      INTEGER,PARAMETER :: npoints=5000,nrows=82701, nn=1000
+      INTEGER,PARAMETER :: npoints=10000,nrows=82701, nn=1000
       integer, parameter :: RegInt_K = selected_int_kind (12)
       INTEGER (kind=RegInt_K) :: i
-      INTEGER :: nr,j,inoise,npts, nhil,nlin,option,flag,dim
+      INTEGER :: nr,j,k,inoise,npts, nhil,nlin,option,flag,dim
       INTEGER :: z_w,id,iplate,imjd,ifiber,ipix,status,maxr
       REAL*8 :: wstart,wend,dw,mags(5)
       REAL*8 :: nc,nuplim,sigblur
       REAL*8 :: corr, zstart,zend
-c      REAL*4 :: a,b,chi2,q,siga,sigb,xx(nn),yy(nn),xmin,xmax
       REAL*8,DIMENSION(3) :: bigA,gamma,numl
       REAL*4,DIMENSION(3,nn) :: np,sig
       CHARACTER,DIMENSION(nrows) :: SDSS_name*18
@@ -38,8 +37,9 @@ c      REAL*4 :: a,b,chi2,q,siga,sigb,xx(nn),yy(nn),xmin,xmax
      &            power_laws, writefits, assign, write_cloudy_input
      &            cloudy
 
+      INTEGER :: sample_spec(16)
+
 !====================================================================== 
-      home = '/Users/dm/Documents/GitHub/QSOSIM10'
 ! ---------------------------------------------------------------------
 ! DATA USED
 ! ---------------------------------------------------------------------
@@ -62,7 +62,7 @@ c      REAL*4 :: a,b,chi2,q,siga,sigb,xx(nn),yy(nn),xmin,xmax
       write (6,*)'===================================================='
       write (6,*)'A  program  to  create  artificial  QSO spectra  and'
       write (6,*)"simulate the Sloan Digital Sky Survey's QSO data set"
-      write (6,*)'Dated: 2015/2/6'
+      write (6,*)'Dated: 2015/03/30'
 ! ---------------------------------------------------------------------
 ! READ THE METAL DATABASE
 ! ---------------------------------------------------------------------
@@ -73,7 +73,7 @@ c      REAL*4 :: a,b,chi2,q,siga,sigb,xx(nn),yy(nn),xmin,xmax
 ! ---------------------------------------------------------------------
 ! READ INPUT PARAMETERS
 ! ---------------------------------------------------------------------
-      home = '/Users/dm/Documents/GitHub/QSOSIM10'
+      home = '/Users/dm/Documents/Isotropy/QSOSIM10_source'
       gohome = trim('cd '//home)
       mockspec_folder = trim(home)//'/mockspectra'
       write (6,*)'What would you like to create?'
@@ -112,55 +112,52 @@ c     &         ra,dec,zqso,alpha,rmag,sigblur,s2n)
 ! ---------------------------------------------------------------------
       call spline(npoints,nc,nuplim,xs,ys,CDDF)
 ! ---------------------------------------------------------------------
-! GET THE METAL DATABASE
-! Saved in metals.csv
-! ---------------------------------------------------------------------
-      call metal_db(0)
-! ---------------------------------------------------------------------
 ! GENERATE ARTIFICIAL SPECTRA
 ! use data read from the input file to generate spectra in a loop
 ! ---------------------------------------------------------------------
+
       flag=0
-      do i=48555,48555 !1,nn
+      do i=1,nn
          !--------------------------------------------------------------
-*      (1) Set the unique description of the QSO
+*        (1) Set the unique description of the QSO
          write (descriptor,"(i4.4,'-',i5.5,'-'i4.4)")
      &                     plate(i),mjd(i),fiber(i)
          write (6,*)'=================================================='
          write (6,*)'            Spectrum no. ',descriptor
          write (6,*)'=================================================='
          write (6,70) i,nr
- 70      format ('       Iteration     ',i5,'/',i5)
+ 70      format (21x,i5,'/',i5)
          !--------------------------------------------------------------
-*      (2) Set basic QSO data 
+*        (2) Set basic QSO data 
          !**** begin and end wavelengths for the spectrum, start and end
          !**** redshifts for the Lyman alpha forest
          wstart=begin_wave(i) 
          wend=begin_wave(i)+npix(i)*dw 
          zstart=(10**begin_wave(i)/1215.67)-1.
          zend=zqso(i)
-         ipix=npix(i)   
-         allocate(loglam(ipix));allocate(flux(ipix))
-         allocate(noise(ipix));allocate(nnflux(ipix))
-         allocate(ncflux(ipix));allocate(noabs(ipix))
-         allocate(ivar(ipix))
+         ipix=npix(i) 
          write (6,80) 'z_start =',zstart,'z_qso =',zend
-         write (6,*)'u:',psfmag(i,1),'g:',psfmag(i,2),'r:',psfmag(i,3),
-     :              'i:',psfmag(i,4),'z:',psfmag(i,5)
+c         write (6,*)'u:',psfmag(i,1),'g:',psfmag(i,2),'r:',psfmag(i,3),
+c     :              'i:',psfmag(i,4),'z:',psfmag(i,5)
          write (6,*) 'SDSS name:',SDSS_name(i)
-         write (6,*) 'alpha:',alpha(i), alpha_fit(i)
  80      format (1x,a9,f6.4,3x,a7,f6.4,3x)
 *        Sometimes Lyman alpha forest can't be seen in the 
 *        spectrum. When that happens, skip the spectrum generation.
+*        Also, the r magnitude sometimes has values < 0 (?)
          if (zstart.ge.zend.or.rmag(i).lt.0.0) then
             flag=flag+1
             write(6,*) 'zstart >= zend!'; goto 99
          end if
+*        allocate memory to arrays
+         allocate(loglam(ipix));allocate(flux(ipix))
+         allocate(noise(ipix));allocate(nnflux(ipix))
+         allocate(ncflux(ipix));allocate(noabs(ipix))
+         allocate(ivar(ipix))
          !--------------------------------------------------------------               
 *      (3) calculate the number of lines between zstart and zqso
          call power_laws(npoints,zstart,zend,xs,ys,CDDF,
      +                      bigA,gamma,nhil)
-*        allocate memmory to: NHI , z , mask 
+*        allocate memmory to: NHI , z , znc (no clustering)
          allocate(nhi4(nhil)); allocate(z4(nhil)); allocate(znc4(nhil))
 *        no proximity effect array (npnhi4)
          allocate(npnhi4(nhil))
@@ -184,7 +181,7 @@ c         read (*,'(i1)') option
      +                  SDSS_name(i),thing_id(i),plate(i),mjd(i),
      +                  fiber(i),npix(i),wstart,mags,loglam,flux,noise,
      +                  ivar,nnflux,ncflux,noabs,nlin)
-         write (6,*)'--------------------------------------------------'
+c         write (6,*)'--------------------------------------------------'
 
          !**** deallocate the arrays ****
          deallocate(nhi4); deallocate(z4) 
@@ -193,7 +190,7 @@ c         read (*,'(i1)') option
          deallocate(noise);deallocate(nnflux)
          deallocate(ncflux);deallocate(noabs)
          deallocate(ivar)
-         write(6,*) 'ARRAYS DEALLOCATED'
+c         write(6,*) 'ARRAYS DEALLOCATED'
  99      continue
 c         read (*,'(i1)') option
       end do
